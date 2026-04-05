@@ -92,6 +92,8 @@ export default async function AdvisorPage({ params }: { params: Promise<{ token:
           invitationId={invitation.id}
           rfpId={invitation.rfpId}
           advisorId={invitation.advisorId}
+          existingCrd={invitation.advisor.crdNumber}
+          alreadyVerified={invitation.advisor.brokerCheckVerified}
         />
       </div>
     </div>

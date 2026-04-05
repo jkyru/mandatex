@@ -17,6 +17,7 @@ export async function POST(req: Request) {
       taxCoordinationLevel,
       differentiationText,
       concessionsText,
+      crdNumber,
     } = body
 
     // Validate invitation
@@ -49,6 +50,14 @@ export async function POST(req: Request) {
         status: 'SUBMITTED',
       },
     })
+
+    // Save CRD number to advisor record if provided
+    if (crdNumber) {
+      await prisma.advisor.update({
+        where: { id: advisorId },
+        data: { crdNumber: crdNumber.toString().trim() },
+      })
+    }
 
     // Update invitation status
     await prisma.rfpInvitation.update({

@@ -26,20 +26,33 @@ interface BrokerCheckIndividual {
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { crdNumber, advisorId, inviteToken } = await req.json()
+
+    // Allow access if authenticated as advisor OR if a valid invite token is provided
+    let authorizedUserId: string | null = null
+
+    if (inviteToken) {
+      // Token-based access from submission page
+      const invitation = await prisma.rfpInvitation.findUnique({
+        where: { inviteToken },
+      })
+      if (!invitation) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
+      }
+    } else {
+      // Authenticated access from registration page
+      const session = await auth()
+      if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+      })
+      if (!user || user.role !== 'ADVISOR') {
+        return NextResponse.json({ error: 'Not an advisor account' }, { status: 403 })
+      }
+      authorizedUserId = user.id
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user || user.role !== 'ADVISOR') {
-      return NextResponse.json({ error: 'Not an advisor account' }, { status: 403 })
-    }
-
-    const { crdNumber, advisorId } = await req.json()
 
     if (!crdNumber) {
       return NextResponse.json({ error: 'CRD number is required' }, { status: 400 })
@@ -111,7 +124,7 @@ export async function POST(req: Request) {
         where: { id: advisorId },
       })
 
-      if (advisor && (advisor.userId === user.id || !advisor.userId)) {
+      if (advisor && (advisor.userId === authorizedUserId || !advisor.userId || inviteToken)) {
         await prisma.advisor.update({
           where: { id: advisorId },
           data: {
