@@ -221,16 +221,22 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                   </div>
                   <p className="text-sm text-neutral-500 mt-0.5">{r.leadAdvisorName}</p>
                   <p className="text-xs text-neutral-400 mt-0.5">{r.firmType} — {r.city}</p>
-                  {r.brokerCheckVerified && r.crdNumber && (
+                  {r.crdNumber && (
                     <div className="mt-2 text-xs text-neutral-400 space-y-0.5">
                       <p>CRD #{r.crdNumber}{r.brokerCheckFirm ? ` — ${r.brokerCheckFirm}` : ''}</p>
+                      {!r.brokerCheckVerified && (
+                        <p className="text-amber-500">Not currently registered</p>
+                      )}
+                      {r.brokerCheckVerified && (
+                        <p>
+                          Disclosures: {r.disclosureCount && r.disclosureCount > 0 ? (
+                            <span className="text-amber-500">Yes ({r.disclosureCount})</span>
+                          ) : (
+                            <span>No</span>
+                          )}
+                        </p>
+                      )}
                       <p>
-                        Disclosures: {r.disclosureCount && r.disclosureCount > 0 ? (
-                          <span className="text-amber-500">Yes ({r.disclosureCount})</span>
-                        ) : (
-                          <span>No</span>
-                        )}
-                        {' — '}
                         <a
                           href={`https://brokercheck.finra.org/individual/summary/${r.crdNumber}`}
                           target="_blank"

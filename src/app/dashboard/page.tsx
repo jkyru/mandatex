@@ -120,7 +120,14 @@ export default async function DashboardPage() {
                 differentiationText: r.differentiationText,
                 concessionsText: r.concessionsText,
                 normalizedData: r.normalizedData ? JSON.parse(r.normalizedData) : null,
-                brokerCheckVerified: r.advisor.brokerCheckVerified,
+                brokerCheckVerified: (() => {
+                  if (!r.advisor.brokerCheckVerified) return false
+                  if (!r.advisor.brokerCheckData) return false
+                  const bcData = JSON.parse(r.advisor.brokerCheckData)
+                  // Check isActivelyRegistered (new field) or fall back to currentFirm presence
+                  if ('isActivelyRegistered' in bcData) return bcData.isActivelyRegistered
+                  return !!bcData.currentFirm
+                })(),
                 crdNumber: r.advisor.crdNumber,
                 disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
                 brokerCheckFirm: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).currentFirm : undefined,
