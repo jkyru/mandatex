@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Role: PROSPECT | ADMIN
+// AuthProvider: EMAIL | GOOGLE
+// ProspectStatus: ACTIVE | COMPLETED
+// RfpStatus: DRAFT | OPEN | CLOSED
+// InvitationStatus: SENT | OPENED | SUBMITTED
+// ResponseStatus: SUBMITTED | PUBLISHED
+// PaymentStatus: UNPAID | PAID
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  fullName     String
+  role         String   @default("PROSPECT") // PROSPECT | ADMIN | ADVISOR
+  authProvider String   @default("EMAIL") // EMAIL | GOOGLE
+  googleSub    String?
+  createdAt    DateTime @default(now())
+  prospects    Prospect[]
+  advisor      Advisor?
+}
+
+model Prospect {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  assetsRange String
+  primaryGoal String
+  status      String   @default("ACTIVE") // ACTIVE | COMPLETED
+  createdAt   DateTime @default(now())
+  profile     ProspectProfile?
+  rfps        Rfp[]
+}
+
+model ProspectProfile {
+  id                        String  @id @default(cuid())
+  prospectId                String  @unique
+  prospect                  Prospect @relation(fields: [prospectId], references: [id])
+  isBusinessOwner           Boolean @default(false)
+  hasConcentratedStock      Boolean @default(false)
+  wantsPrivateMarkets       Boolean @default(false)
+  wantsLendingSolutions     Boolean @default(false)
+  needsTaxCoordination      Boolean @default(false)
+  servicePreference         String  @default("full-service") // full-service | self-directed | hybrid
+  investmentStylePreference String  @default("moderate") // conservative | moderate | aggressive
+  summaryText               String?
+}
+
+model Rfp {
+  id                String   @id @default(cuid())
+  prospectId        String
+  prospect          Prospect @relation(fields: [prospectId], references: [id])
+  title             String
+  status            String   @default("OPEN") // DRAFT | OPEN | CLOSED
+  questions         String   @default("[]") // JSON array of RFP questions
+  freeResponseLimit Int      @default(3)
+  paidUnlockPrice   Int      @default(499)
+  createdAt         DateTime @default(now())
+  invitations       RfpInvitation[]
+  responses         AdvisorResponse[]
+  comparisonView    ComparisonView?
+}
+
+model Advisor {
+  id              String   @id @default(cuid())
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id])
+  firmName        String
+  leadAdvisorName String
+  email           String
+  firmType        String
+  city            String
+  clientMinimum   String
+  bio             String?
+  servicesOffered String?  // JSON array of service tags
+  isPublic        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  invitations     RfpInvitation[]
+  responses       AdvisorResponse[]
+}
+
+model RfpInvitation {
+  id          String   @id @default(cuid())
+  rfpId       String
+  rfp         Rfp      @relation(fields: [rfpId], references: [id])
+  advisorId   String
+  advisor     Advisor  @relation(fields: [advisorId], references: [id])
+  inviteToken String   @unique
+  status      String   @default("SENT") // SENT | OPENED | SUBMITTED
+  response    AdvisorResponse?
+}
+
+model AdvisorResponse {
+  id                   String   @id @default(cuid())
+  rfpId                String
+  rfp                  Rfp      @relation(fields: [rfpId], references: [id])
+  advisorId            String
+  advisor              Advisor  @relation(fields: [advisorId], references: [id])
+  invitationId         String   @unique
+  invitation           RfpInvitation @relation(fields: [invitationId], references: [id])
+  aumFeeBps            Int
+  estimatedAnnualCost  Float
+  lendingSpreadBps     Int?
+  privateMarketsAccess String?
+  clientsPerAdvisor    Int
+  taxCoordinationLevel String
+  differentiationText  String
+  concessionsText      String?
+  normalizedData       String?  // JSON: normalized extraction from free-form fields
+  status               String   @default("SUBMITTED") // SUBMITTED | PUBLISHED
+  createdAt            DateTime @default(now())
+}
+
+model ComparisonView {
+  id                   String   @id @default(cuid())
+  rfpId                String   @unique
+  rfp                  Rfp      @relation(fields: [rfpId], references: [id])
+  prospectId           String
+  visibleResponseCount Int      @default(3)
+  isPaywalled          Boolean  @default(true)
+  paymentStatus        String   @default("UNPAID") // UNPAID | PAID
+}
