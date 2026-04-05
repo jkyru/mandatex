@@ -5,23 +5,18 @@ import { prisma } from '@/lib/prisma'
 export const runtime = 'nodejs'
 
 interface BrokerCheckIndividual {
-  individualName?: string
-  currentEmployments?: Array<{
-    firmName?: string
-    branchCity?: string
-    branchState?: string
+  ind_source_id?: string
+  ind_firstname?: string
+  ind_lastname?: string
+  ind_other_names?: string[]
+  ind_bc_scope?: string
+  ind_ia_scope?: string
+  ind_bc_disclosure_fl?: string
+  ind_current_employments?: Array<{
+    firm_name?: string
+    branch_city?: string
+    branch_state?: string
   }>
-  disclosures?: Array<{
-    disclosureType?: string
-    disclosureDate?: string
-    disclosureDetail?: string
-    disclosureResolution?: string
-  }>
-  industry?: {
-    registrations?: Array<{
-      registrationType?: string
-    }>
-  }
 }
 
 export async function POST(req: Request) {
@@ -60,9 +55,9 @@ export async function POST(req: Request) {
 
     const crd = crdNumber.toString().trim()
 
-    // Call FINRA BrokerCheck public API
+    // Call FINRA BrokerCheck search API
     const brokerCheckRes = await fetch(
-      `https://api.brokercheck.finra.org/individual/individual/${crd}`,
+      `https://api.brokercheck.finra.org/search/individual?query=${crd}&hl=true&nrows=1&start=0&r=25&sort=score+desc&wt=json`,
       {
         headers: {
           'Accept': 'application/json',
@@ -71,12 +66,6 @@ export async function POST(req: Request) {
     )
 
     if (!brokerCheckRes.ok) {
-      if (brokerCheckRes.status === 404) {
-        return NextResponse.json({
-          verified: false,
-          error: 'No advisor found with this CRD number',
-        })
-      }
       return NextResponse.json({
         verified: false,
         error: 'Unable to verify CRD at this time',
@@ -85,7 +74,7 @@ export async function POST(req: Request) {
 
     const data = await brokerCheckRes.json()
 
-    // Extract individual data from response
+    // Extract individual data from search response
     const hits = data?.hits?.hits
     if (!hits || hits.length === 0) {
       return NextResponse.json({
@@ -95,26 +84,35 @@ export async function POST(req: Request) {
     }
 
     const individual: BrokerCheckIndividual = hits[0]?._source || {}
-    const name = individual.individualName || 'Unknown'
-    const currentFirm = individual.currentEmployments?.[0]?.firmName || null
-    const firmCity = individual.currentEmployments?.[0]?.branchCity || null
-    const firmState = individual.currentEmployments?.[0]?.branchState || null
 
-    // Extract disclosures
-    const disclosures = (individual.disclosures || []).map((d) => ({
-      type: d.disclosureType || 'Unknown',
-      date: d.disclosureDate || null,
-      detail: d.disclosureDetail || null,
-      resolution: d.disclosureResolution || null,
-    }))
+    // Verify the CRD actually matches (search could return fuzzy results)
+    if (individual.ind_source_id !== crd) {
+      return NextResponse.json({
+        verified: false,
+        error: 'No advisor found with this CRD number',
+      })
+    }
+
+    const name = [individual.ind_firstname, individual.ind_lastname].filter(Boolean).join(' ') || 'Unknown'
+    const currentFirm = individual.ind_current_employments?.[0]?.firm_name || null
+    const firmCity = individual.ind_current_employments?.[0]?.branch_city || null
+    const firmState = individual.ind_current_employments?.[0]?.branch_state || null
+    const hasDisclosures = individual.ind_bc_disclosure_fl === 'Y'
+
+    // Note: the search endpoint doesn't return full disclosure details,
+    // just a flag. We indicate presence/absence.
+    const disclosures: Array<{ type: string; date: string | null; detail: string | null; resolution: string | null }> = []
+    const disclosureCount = hasDisclosures ? 1 : 0
 
     const brokerCheckData = {
       name,
       crdNumber: crd,
       currentFirm,
       firmLocation: firmCity && firmState ? `${firmCity}, ${firmState}` : null,
-      disclosureCount: disclosures.length,
+      disclosureCount,
       disclosures,
+      registrationStatus: individual.ind_bc_scope || null,
+      iaStatus: individual.ind_ia_scope || null,
       verifiedAt: new Date().toISOString(),
     }
 
