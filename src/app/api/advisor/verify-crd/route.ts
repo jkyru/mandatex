@@ -68,6 +68,7 @@ export async function POST(req: Request) {
     if (!brokerCheckRes.ok) {
       return NextResponse.json({
         verified: false,
+        found: false,
         error: 'Unable to verify CRD at this time',
       })
     }
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
     if (!hits || hits.length === 0) {
       return NextResponse.json({
         verified: false,
+        found: false,
         error: 'No advisor found with this CRD number',
       })
     }
@@ -89,18 +91,21 @@ export async function POST(req: Request) {
     if (individual.ind_source_id !== crd) {
       return NextResponse.json({
         verified: false,
+        found: false,
         error: 'No advisor found with this CRD number',
       })
     }
 
     const name = [individual.ind_firstname, individual.ind_lastname].filter(Boolean).join(' ') || 'Unknown'
-    const currentFirm = individual.ind_current_employments?.[0]?.firm_name || null
-    const firmCity = individual.ind_current_employments?.[0]?.branch_city || null
-    const firmState = individual.ind_current_employments?.[0]?.branch_state || null
+    const currentEmployments = individual.ind_current_employments || []
+    const currentFirm = currentEmployments[0]?.firm_name || null
+    const firmCity = currentEmployments[0]?.branch_city || null
+    const firmState = currentEmployments[0]?.branch_state || null
     const hasDisclosures = individual.ind_bc_disclosure_fl === 'Y'
 
-    // Note: the search endpoint doesn't return full disclosure details,
-    // just a flag. We indicate presence/absence.
+    // Only consider "verified" if the advisor has an active registration
+    const isActivelyRegistered = currentEmployments.length > 0
+
     const disclosures: Array<{ type: string; date: string | null; detail: string | null; resolution: string | null }> = []
     const disclosureCount = hasDisclosures ? 1 : 0
 
@@ -113,6 +118,7 @@ export async function POST(req: Request) {
       disclosures,
       registrationStatus: individual.ind_bc_scope || null,
       iaStatus: individual.ind_ia_scope || null,
+      isActivelyRegistered,
       verifiedAt: new Date().toISOString(),
     }
 
@@ -127,7 +133,7 @@ export async function POST(req: Request) {
           where: { id: advisorId },
           data: {
             crdNumber: crd,
-            brokerCheckVerified: true,
+            brokerCheckVerified: isActivelyRegistered,
             brokerCheckData: JSON.stringify(brokerCheckData),
           },
         })
@@ -135,7 +141,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      verified: true,
+      verified: isActivelyRegistered,
+      found: true,
       data: brokerCheckData,
     })
   } catch (e) {

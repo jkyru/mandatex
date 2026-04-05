@@ -54,6 +54,7 @@ interface FormData {
 
 interface BrokerCheckResult {
   verified: boolean
+  found?: boolean
   error?: string
   data?: {
     name: string
@@ -61,6 +62,7 @@ interface BrokerCheckResult {
     currentFirm: string | null
     firmLocation: string | null
     disclosureCount: number
+    isActivelyRegistered?: boolean
     disclosures: Array<{
       type: string
       date: string | null
@@ -303,7 +305,26 @@ export default function AdvisorRegisterPage() {
                 </div>
               )}
 
-              {crdResult && !crdResult.verified && (
+              {crdResult && !crdResult.verified && crdResult.found && crdResult.data && (
+                <div className="mt-3 rounded-md border border-neutral-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                    </span>
+                    <span className="text-sm font-medium text-amber-700">CRD found but not currently registered</span>
+                  </div>
+                  <div className="text-sm text-neutral-600 space-y-1 pl-7">
+                    <p><span className="text-neutral-400">Name:</span> {crdResult.data.name}</p>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      An active broker or investment adviser registration is required for the verified badge.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {crdResult && !crdResult.verified && !crdResult.found && (
                 <p className="mt-2 text-sm text-red-600">{crdResult.error}</p>
               )}
             </div>
