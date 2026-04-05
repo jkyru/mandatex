@@ -115,6 +115,15 @@ export default async function DashboardPage() {
             unlockPrice={rfp.paidUnlockPrice}
           />
         )}
+
+        <div className="mt-8 text-center">
+          <a
+            href={`/success?rfpId=${rfp.id}`}
+            className="text-sm text-neutral-500 underline hover:text-neutral-700"
+          >
+            Invite Additional Advisors
+          </a>
+        </div>
       </div>
     </div>
   )
