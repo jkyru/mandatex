@@ -107,6 +107,7 @@ export default async function DashboardPage() {
               brokerCheckVerified: r.advisor.brokerCheckVerified,
               crdNumber: r.advisor.crdNumber,
               disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
+              brokerCheckFirm: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).currentFirm : undefined,
             }))}
             freeLimit={freeLimit}
             isPaid={isPaid}

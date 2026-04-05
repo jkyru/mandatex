@@ -44,6 +44,7 @@ interface ResponseData {
   brokerCheckVerified?: boolean
   crdNumber?: string | null
   disclosureCount?: number
+  brokerCheckFirm?: string | null
 }
 
 interface Props {
@@ -192,7 +193,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-semibold text-neutral-900">{r.firmName}</h3>
                     {r.brokerCheckVerified && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-medium text-green-700" title={`CRD #${r.crdNumber}${r.disclosureCount ? ` — ${r.disclosureCount} disclosure(s)` : ' — No disclosures'}`}>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-medium text-green-700">
                         <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
@@ -202,6 +203,27 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                   </div>
                   <p className="text-sm text-neutral-500 mt-0.5">{r.leadAdvisorName}</p>
                   <p className="text-xs text-neutral-400 mt-0.5">{r.firmType} — {r.city}</p>
+                  {r.brokerCheckVerified && r.crdNumber && (
+                    <div className="mt-2 text-xs text-neutral-400 space-y-0.5">
+                      <p>CRD #{r.crdNumber}{r.brokerCheckFirm ? ` — ${r.brokerCheckFirm}` : ''}</p>
+                      <p>
+                        Disclosures: {r.disclosureCount && r.disclosureCount > 0 ? (
+                          <span className="text-amber-500">Yes ({r.disclosureCount})</span>
+                        ) : (
+                          <span>No</span>
+                        )}
+                        {' — '}
+                        <a
+                          href={`https://brokercheck.finra.org/individual/summary/${r.crdNumber}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-neutral-600"
+                        >
+                          View on BrokerCheck
+                        </a>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Structured metrics (always shown) */}
