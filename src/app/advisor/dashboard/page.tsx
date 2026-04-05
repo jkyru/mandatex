@@ -38,7 +38,7 @@ export default async function AdvisorDashboardPage() {
         },
       },
       advisor: true,
-      response: true,
+      responses: true,
     },
     orderBy: { rfp: { createdAt: 'desc' } },
   })
@@ -59,7 +59,7 @@ export default async function AdvisorDashboardPage() {
             },
           },
           advisor: true,
-          response: true,
+          responses: true,
         },
         orderBy: { rfp: { createdAt: 'desc' } },
       })
@@ -126,7 +126,7 @@ export default async function AdvisorDashboardPage() {
         ) : (
           <div className="space-y-4">
             {invitations.map((inv) => {
-              const hasResponded = inv.status === 'SUBMITTED' || !!inv.response
+              const hasResponded = inv.status === 'SUBMITTED' || inv.responses.length > 0
               return (
                 <Card key={inv.id} className="flex items-center justify-between">
                   <div>
