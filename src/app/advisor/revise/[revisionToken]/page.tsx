@@ -92,10 +92,8 @@ export default async function RevisionPage({ params }: { params: Promise<{ revis
           </p>
         </div>
 
-        {/* Client Note Callout */}
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg mb-8">
-          <p className="text-sm font-medium text-amber-900 mb-1">Message from the Client:</p>
-          <p className="text-sm text-amber-800">{revisionRequest.finalNote}</p>
+        <div className="bg-amber-50 border border-amber-200 px-4 py-3 rounded-lg mb-8 text-center">
+          <p className="text-sm font-medium text-amber-900">You have been requested to revise your offer.</p>
         </div>
 
         <RevisionSubmissionForm
