@@ -27,8 +27,17 @@ export default async function DashboardPage() {
         take: 1,
         include: {
           responses: {
-            include: { advisor: true },
+            where: { isLatest: true },
+            include: {
+              advisor: true,
+              previousResponse: true,
+              revisionRequest: true,
+            },
             orderBy: { createdAt: 'asc' },
+          },
+          revisionRequests: {
+            where: { status: { in: ['PENDING', 'VIEWED'] } },
+            select: { advisorId: true, status: true },
           },
           comparisonView: true,
         },
@@ -63,6 +72,11 @@ export default async function DashboardPage() {
   const freeLimit = rfp.freeResponseLimit
   const totalResponses = rfp.responses.length
 
+  // Build set of advisorIds with pending revision requests
+  const pendingRevisionAdvisorIds = new Set(
+    rfp.revisionRequests.map((rr: { advisorId: string }) => rr.advisorId)
+  )
+
   return (
     <div className="min-h-screen bg-neutral-50">
       <nav className="border-b border-neutral-100 bg-white">
@@ -89,26 +103,40 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <ComparisonDashboard
-            responses={rfp.responses.map((r) => ({
-              id: r.id,
-              firmName: r.advisor.firmName,
-              leadAdvisorName: r.advisor.leadAdvisorName,
-              firmType: r.advisor.firmType,
-              city: r.advisor.city,
-              aumFeeBps: r.aumFeeBps,
-              estimatedAnnualCost: r.estimatedAnnualCost,
-              lendingSpreadBps: r.lendingSpreadBps,
-              privateMarketsAccess: r.privateMarketsAccess,
-              clientsPerAdvisor: r.clientsPerAdvisor,
-              taxCoordinationLevel: r.taxCoordinationLevel,
-              differentiationText: r.differentiationText,
-              concessionsText: r.concessionsText,
-              normalizedData: r.normalizedData ? JSON.parse(r.normalizedData) : null,
-              brokerCheckVerified: r.advisor.brokerCheckVerified,
-              crdNumber: r.advisor.crdNumber,
-              disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
-              brokerCheckFirm: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).currentFirm : undefined,
-            }))}
+            responses={rfp.responses.map((r) => {
+              const prev = r.previousResponse
+              return {
+                id: r.id,
+                firmName: r.advisor.firmName,
+                leadAdvisorName: r.advisor.leadAdvisorName,
+                firmType: r.advisor.firmType,
+                city: r.advisor.city,
+                aumFeeBps: r.aumFeeBps,
+                estimatedAnnualCost: r.estimatedAnnualCost,
+                lendingSpreadBps: r.lendingSpreadBps,
+                privateMarketsAccess: r.privateMarketsAccess,
+                clientsPerAdvisor: r.clientsPerAdvisor,
+                taxCoordinationLevel: r.taxCoordinationLevel,
+                differentiationText: r.differentiationText,
+                concessionsText: r.concessionsText,
+                normalizedData: r.normalizedData ? JSON.parse(r.normalizedData) : null,
+                brokerCheckVerified: r.advisor.brokerCheckVerified,
+                crdNumber: r.advisor.crdNumber,
+                disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
+                brokerCheckFirm: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).currentFirm : undefined,
+                advisorId: r.advisorId,
+                invitationId: r.invitationId,
+                version: r.version,
+                hasRevisionPending: pendingRevisionAdvisorIds.has(r.advisorId),
+                previousValues: prev ? {
+                  aumFeeBps: prev.aumFeeBps,
+                  estimatedAnnualCost: prev.estimatedAnnualCost,
+                  lendingSpreadBps: prev.lendingSpreadBps,
+                  clientsPerAdvisor: prev.clientsPerAdvisor,
+                  taxCoordinationLevel: prev.taxCoordinationLevel,
+                } : null,
+              }
+            })}
             freeLimit={freeLimit}
             isPaid={isPaid}
             rfpId={rfp.id}

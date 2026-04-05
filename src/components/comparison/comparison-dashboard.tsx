@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { ImproveOfferModal } from './improve-offer-modal'
 
 interface NormalizedData {
   privateMarkets: {
@@ -45,6 +46,17 @@ interface ResponseData {
   crdNumber?: string | null
   disclosureCount?: number
   brokerCheckFirm?: string | null
+  advisorId?: string
+  invitationId?: string
+  version?: number
+  hasRevisionPending?: boolean
+  previousValues?: {
+    aumFeeBps: number
+    estimatedAnnualCost: number
+    lendingSpreadBps: number | null
+    clientsPerAdvisor: number
+    taxCoordinationLevel: string
+  } | null
 }
 
 interface Props {
@@ -61,6 +73,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
   const [viewMode, setViewMode] = useState<'raw' | 'normalized'>('normalized')
   const [normalizing, setNormalizing] = useState(false)
   const [normalizedMap, setNormalizedMap] = useState<Record<string, NormalizedData>>({})
+  const [improveTarget, setImproveTarget] = useState<ResponseData | null>(null)
   const router = useRouter()
 
   const visibleResponses = isPaid ? responses : responses.slice(0, freeLimit)
@@ -190,7 +203,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
               <div key={r.id} className="w-80 flex-shrink-0 bg-white border border-neutral-200 rounded-lg overflow-hidden">
                 {/* Header */}
                 <div className="p-6 border-b border-neutral-100">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base font-semibold text-neutral-900">{r.firmName}</h3>
                     {r.brokerCheckVerified && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-medium text-green-700">
@@ -198,6 +211,11 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                         Verified
+                      </span>
+                    )}
+                    {r.version && r.version > 1 && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-[10px] font-medium text-blue-700">
+                        Revised
                       </span>
                     )}
                   </div>
@@ -230,19 +248,39 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                 <div className="divide-y divide-neutral-100">
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">AUM Fee</p>
-                    <p className="text-lg font-semibold text-neutral-900 mt-1">{formatBps(r.aumFeeBps)}</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-lg font-semibold text-neutral-900">{formatBps(r.aumFeeBps)}</p>
+                      {r.previousValues && r.previousValues.aumFeeBps !== r.aumFeeBps && (
+                        <span className="text-xs text-neutral-400 line-through">{formatBps(r.previousValues.aumFeeBps)}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Est. Annual Cost</p>
-                    <p className="text-lg font-semibold text-neutral-900 mt-1">{formatCurrency(r.estimatedAnnualCost)}</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-lg font-semibold text-neutral-900">{formatCurrency(r.estimatedAnnualCost)}</p>
+                      {r.previousValues && r.previousValues.estimatedAnnualCost !== r.estimatedAnnualCost && (
+                        <span className="text-xs text-neutral-400 line-through">{formatCurrency(r.previousValues.estimatedAnnualCost)}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Lending Spread</p>
-                    <p className="text-sm text-neutral-900 mt-1">{r.lendingSpreadBps ? formatBps(r.lendingSpreadBps) : 'N/A'}</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-sm text-neutral-900">{r.lendingSpreadBps ? formatBps(r.lendingSpreadBps) : 'N/A'}</p>
+                      {r.previousValues && r.previousValues.lendingSpreadBps !== r.lendingSpreadBps && r.previousValues.lendingSpreadBps != null && (
+                        <span className="text-xs text-neutral-400 line-through">{formatBps(r.previousValues.lendingSpreadBps)}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Clients per Advisor</p>
-                    <p className="text-sm text-neutral-900 mt-1">{r.clientsPerAdvisor}</p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-sm text-neutral-900">{r.clientsPerAdvisor}</p>
+                      {r.previousValues && r.previousValues.clientsPerAdvisor !== r.clientsPerAdvisor && (
+                        <span className="text-xs text-neutral-400 line-through">{r.previousValues.clientsPerAdvisor}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Tax Coordination</p>
@@ -360,6 +398,20 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                       )}
                     </>
                   )}
+
+                  {/* Improve Offer action */}
+                  <div className="px-6 py-4">
+                    {r.hasRevisionPending ? (
+                      <p className="text-xs text-amber-600 font-medium text-center">Revision Requested</p>
+                    ) : responses.length >= 2 ? (
+                      <button
+                        onClick={() => setImproveTarget(r)}
+                        className="w-full h-9 rounded-md border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Improve Offer
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             )
@@ -397,6 +449,15 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
           )}
         </div>
       </div>
+
+      {/* Improve Offer Modal */}
+      {improveTarget && (
+        <ImproveOfferModal
+          response={improveTarget}
+          rfpId={rfpId}
+          onClose={() => setImproveTarget(null)}
+        />
+      )}
     </div>
   )
 }

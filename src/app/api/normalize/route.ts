@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   const responses = await prisma.advisorResponse.findMany({
-    where: { rfpId },
+    where: { rfpId, isLatest: true },
     include: { advisor: true },
   })
 

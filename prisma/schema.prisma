@@ -12,9 +12,10 @@ datasource db {
 // AuthProvider: EMAIL | GOOGLE
 // ProspectStatus: ACTIVE | COMPLETED
 // RfpStatus: DRAFT | OPEN | CLOSED
-// InvitationStatus: SENT | OPENED | SUBMITTED
+// InvitationStatus: SENT | OPENED | SUBMITTED | REVISION_REQUESTED
 // ResponseStatus: SUBMITTED | PUBLISHED
 // PaymentStatus: UNPAID | PAID
+// RevisionStatus: PENDING | VIEWED | REVISED | EXPIRED
 
 model User {
   id           String   @id @default(cuid())
@@ -68,6 +69,7 @@ model Rfp {
   invitations       RfpInvitation[]
   responses         AdvisorResponse[]
   comparisonView    ComparisonView?
+  revisionRequests  RevisionRequest[]
 }
 
 model Advisor {
@@ -89,6 +91,7 @@ model Advisor {
   createdAt       DateTime @default(now())
   invitations     RfpInvitation[]
   responses       AdvisorResponse[]
+  revisionRequests RevisionRequest[]
 }
 
 model RfpInvitation {
@@ -98,8 +101,9 @@ model RfpInvitation {
   advisorId   String
   advisor     Advisor  @relation(fields: [advisorId], references: [id])
   inviteToken String   @unique
-  status      String   @default("SENT") // SENT | OPENED | SUBMITTED
-  response    AdvisorResponse?
+  status      String   @default("SENT") // SENT | OPENED | SUBMITTED | REVISION_REQUESTED
+  responses   AdvisorResponse[]
+  revisionRequests RevisionRequest[]
 }
 
 model AdvisorResponse {
@@ -108,7 +112,7 @@ model AdvisorResponse {
   rfp                  Rfp      @relation(fields: [rfpId], references: [id])
   advisorId            String
   advisor              Advisor  @relation(fields: [advisorId], references: [id])
-  invitationId         String   @unique
+  invitationId         String
   invitation           RfpInvitation @relation(fields: [invitationId], references: [id])
   aumFeeBps            Int
   estimatedAnnualCost  Float
@@ -121,6 +125,40 @@ model AdvisorResponse {
   normalizedData       String?  // JSON: normalized extraction from free-form fields
   status               String   @default("SUBMITTED") // SUBMITTED | PUBLISHED
   createdAt            DateTime @default(now())
+
+  // Versioning
+  version              Int      @default(1)
+  isLatest             Boolean  @default(true)
+  previousResponseId   String?  @unique
+  previousResponse     AdvisorResponse? @relation("ResponseChain", fields: [previousResponseId], references: [id])
+  nextResponse         AdvisorResponse? @relation("ResponseChain")
+  revisionRequestId    String?
+  revisionRequest      RevisionRequest? @relation(fields: [revisionRequestId], references: [id])
+
+  @@index([rfpId, advisorId, isLatest])
+  @@index([invitationId, isLatest])
+}
+
+model RevisionRequest {
+  id                 String   @id @default(cuid())
+  createdAt          DateTime @default(now())
+  rfpId              String
+  rfp                Rfp      @relation(fields: [rfpId], references: [id])
+  advisorId          String
+  advisor            Advisor  @relation(fields: [advisorId], references: [id])
+  invitationId       String
+  invitation         RfpInvitation @relation(fields: [invitationId], references: [id])
+  revisionToken      String   @unique
+  aiGeneratedNote    String
+  clientEditedNote   String?
+  finalNote          String
+  competitiveContext String   // JSON: snapshot of competitor data fed to AI
+  status             String   @default("PENDING") // PENDING | VIEWED | REVISED | EXPIRED
+  expiresAt          DateTime?
+  responses          AdvisorResponse[]
+
+  @@index([revisionToken])
+  @@index([invitationId])
 }
 
 model ComparisonView {
