@@ -49,6 +49,26 @@ interface FormData {
   clientMinimum: string
   bio: string
   servicesOffered: string[]
+  crdNumber: string
+}
+
+interface BrokerCheckResult {
+  verified: boolean
+  error?: string
+  data?: {
+    name: string
+    crdNumber: string
+    currentFirm: string | null
+    firmLocation: string | null
+    disclosureCount: number
+    disclosures: Array<{
+      type: string
+      date: string | null
+      detail: string | null
+      resolution: string | null
+    }>
+    verifiedAt: string
+  }
 }
 
 export default function AdvisorRegisterPage() {
@@ -56,6 +76,8 @@ export default function AdvisorRegisterPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [crdVerifying, setCrdVerifying] = useState(false)
+  const [crdResult, setCrdResult] = useState<BrokerCheckResult | null>(null)
 
   const [form, setForm] = useState<FormData>({
     firmName: '',
@@ -65,6 +87,7 @@ export default function AdvisorRegisterPage() {
     clientMinimum: '',
     bio: '',
     servicesOffered: [],
+    crdNumber: '',
   })
 
   useEffect(() => {
@@ -93,6 +116,24 @@ export default function AdvisorRegisterPage() {
         ? prev.servicesOffered.filter((s) => s !== service)
         : [...prev.servicesOffered, service],
     }))
+  }
+
+  async function verifyCrd() {
+    if (!form.crdNumber.trim()) return
+    setCrdVerifying(true)
+    setCrdResult(null)
+    try {
+      const res = await fetch('/api/advisor/verify-crd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ crdNumber: form.crdNumber.trim() }),
+      })
+      const data = await res.json()
+      setCrdResult(data)
+    } catch {
+      setCrdResult({ verified: false, error: 'Verification failed' })
+    }
+    setCrdVerifying(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,6 +219,94 @@ export default function AdvisorRegisterPage() {
               placeholder="Jane Smith, CFA"
               required
             />
+
+            {/* CRD Number */}
+            <div className="space-y-1.5">
+              <label htmlFor="crdNumber" className="block text-sm font-medium text-neutral-700">
+                CRD Number <span className="text-neutral-400 font-normal">(optional)</span>
+              </label>
+              <p className="text-xs text-neutral-500">
+                Your FINRA Central Registration Depository number. We verify it via BrokerCheck.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  id="crdNumber"
+                  type="text"
+                  value={form.crdNumber}
+                  onChange={(e) => {
+                    updateForm({ crdNumber: e.target.value })
+                    setCrdResult(null)
+                  }}
+                  placeholder="e.g. 1234567"
+                  className="flex h-11 w-full rounded-md border border-neutral-300 bg-white px-4 text-sm text-neutral-900 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                />
+                <button
+                  type="button"
+                  onClick={verifyCrd}
+                  disabled={!form.crdNumber.trim() || crdVerifying}
+                  className="h-11 px-4 rounded-md bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {crdVerifying ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
+
+              {crdResult && crdResult.verified && crdResult.data && (
+                <div className="mt-3 rounded-md border border-neutral-200 bg-white p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </span>
+                    <span className="text-sm font-medium text-green-700">Verified via FINRA BrokerCheck</span>
+                  </div>
+                  <div className="text-sm text-neutral-600 space-y-1 pl-7">
+                    <p><span className="text-neutral-400">Name:</span> {crdResult.data.name}</p>
+                    {crdResult.data.currentFirm && (
+                      <p><span className="text-neutral-400">Firm:</span> {crdResult.data.currentFirm}</p>
+                    )}
+                    {crdResult.data.firmLocation && (
+                      <p><span className="text-neutral-400">Location:</span> {crdResult.data.firmLocation}</p>
+                    )}
+                    <p>
+                      <span className="text-neutral-400">Disclosures:</span>{' '}
+                      {crdResult.data.disclosureCount === 0 ? (
+                        <span className="text-green-600">None</span>
+                      ) : (
+                        <span className="text-amber-600">
+                          {crdResult.data.disclosureCount} disclosure{crdResult.data.disclosureCount !== 1 ? 's' : ''} on record
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {crdResult.data.disclosureCount > 0 && (
+                    <div className="pl-7 mt-2">
+                      <details className="text-sm">
+                        <summary className="text-neutral-500 cursor-pointer hover:text-neutral-700">
+                          View disclosures
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                          {crdResult.data.disclosures.map((d, i) => (
+                            <div key={i} className="rounded border border-neutral-100 p-3 bg-neutral-50">
+                              <p className="text-xs font-medium text-neutral-700">{d.type}</p>
+                              {d.date && <p className="text-xs text-neutral-500 mt-0.5">{d.date}</p>}
+                              {d.detail && <p className="text-xs text-neutral-500 mt-1">{d.detail}</p>}
+                              {d.resolution && (
+                                <p className="text-xs text-neutral-400 mt-1">Resolution: {d.resolution}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {crdResult && !crdResult.verified && (
+                <p className="mt-2 text-sm text-red-600">{crdResult.error}</p>
+              )}
+            </div>
 
             {/* Firm Type */}
             <Select

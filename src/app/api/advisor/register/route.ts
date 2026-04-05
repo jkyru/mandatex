@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       clientMinimum,
       bio,
       servicesOffered,
+      crdNumber,
     } = await req.json()
 
     if (!firmName || !leadAdvisorName || !firmType || !city || !clientMinimum) {
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
           clientMinimum,
           bio: bio || null,
           servicesOffered: servicesOffered ? JSON.stringify(servicesOffered) : null,
+          crdNumber: crdNumber || null,
           isPublic: true,
         },
       })
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
           clientMinimum,
           bio: bio || null,
           servicesOffered: servicesOffered ? JSON.stringify(servicesOffered) : null,
+          crdNumber: crdNumber || null,
           isPublic: true,
         },
       })

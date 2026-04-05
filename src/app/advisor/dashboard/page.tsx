@@ -89,7 +89,17 @@ export default async function AdvisorDashboardPage() {
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-semibold text-neutral-900 mb-2">Advisor Dashboard</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-semibold text-neutral-900">Advisor Dashboard</h1>
+          {advisor?.brokerCheckVerified && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-xs font-medium text-green-700">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              BrokerCheck Verified
+            </span>
+          )}
+        </div>
         <p className="text-sm text-neutral-500 mb-8">
           {invitations.length} active RFP invitation{invitations.length !== 1 ? 's' : ''}
         </p>

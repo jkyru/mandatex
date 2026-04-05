@@ -82,6 +82,9 @@ model Advisor {
   clientMinimum   String
   bio             String?
   servicesOffered String?  // JSON array of service tags
+  crdNumber       String?
+  brokerCheckVerified Boolean @default(false)
+  brokerCheckData String?  // JSON: name, firm, disclosures from BrokerCheck
   isPublic        Boolean  @default(true)
   createdAt       DateTime @default(now())
   invitations     RfpInvitation[]

@@ -104,6 +104,9 @@ export default async function DashboardPage() {
               differentiationText: r.differentiationText,
               concessionsText: r.concessionsText,
               normalizedData: r.normalizedData ? JSON.parse(r.normalizedData) : null,
+              brokerCheckVerified: r.advisor.brokerCheckVerified,
+              crdNumber: r.advisor.crdNumber,
+              disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
             }))}
             freeLimit={freeLimit}
             isPaid={isPaid}
