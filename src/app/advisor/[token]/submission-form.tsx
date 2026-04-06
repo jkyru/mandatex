@@ -31,6 +31,7 @@ interface BrokerCheckResult {
 interface Props {
   token: string
   advisorName: string
+  advisorFirm: string
   invitationId: string
   rfpId: string
   advisorId: string
@@ -38,16 +39,20 @@ interface Props {
   alreadyVerified?: boolean
 }
 
-export function AdvisorSubmissionForm({ token, advisorName, invitationId, rfpId, advisorId, existingCrd, alreadyVerified }: Props) {
+export function AdvisorSubmissionForm({ token, advisorName, advisorFirm, invitationId, rfpId, advisorId, existingCrd, alreadyVerified }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [crdVerifying, setCrdVerifying] = useState(false)
   const [crdResult, setCrdResult] = useState<BrokerCheckResult | null>(null)
 
+  // Pre-populate from client-provided data if it looks real (not placeholder values)
+  const hasRealName = advisorName && advisorName !== 'TBD' && !advisorName.includes('@')
+  const hasRealFirm = advisorFirm && advisorFirm !== 'TBD' && !advisorFirm.includes('@')
+
   const [form, setForm] = useState({
-    submissionName: '',
-    submissionFirm: '',
+    submissionName: hasRealName ? advisorName : '',
+    submissionFirm: hasRealFirm ? advisorFirm : '',
     aumFeeBps: '',
     estimatedAnnualCost: '',
     lendingSpreadBps: '',
@@ -185,7 +190,7 @@ export function AdvisorSubmissionForm({ token, advisorName, invitationId, rfpId,
               type="text"
               value={form.submissionName}
               onChange={(e) => update('submissionName', e.target.value)}
-              placeholder={advisorName}
+              placeholder="Your name"
             />
             <Input
               id="submissionFirm"

@@ -88,7 +88,8 @@ export default async function AdvisorPage({ params }: { params: Promise<{ token:
 
         <AdvisorSubmissionForm
           token={token}
-          advisorName={invitation.advisor.firmName}
+          advisorName={invitation.advisor.leadAdvisorName}
+          advisorFirm={invitation.advisor.firmName}
           invitationId={invitation.id}
           rfpId={invitation.rfpId}
           advisorId={invitation.advisorId}
