@@ -51,6 +51,7 @@ export default async function DashboardPage() {
             select: { advisorId: true, status: true },
           },
           comparisonView: true,
+          sourceEvaluation: true,
         },
       },
     },
@@ -87,6 +88,37 @@ export default async function DashboardPage() {
   const pendingRevisionAdvisorIds = new Set(
     rfp.revisionRequests.map((rr: { advisorId: string }) => rr.advisorId)
   )
+
+  // Build existing advisor data from source evaluation (if came from evaluate flow)
+  const existingAdvisorData = (() => {
+    const evalData = rfp.sourceEvaluation
+    if (!evalData) return null
+    const AUM_MIDPOINTS: Record<string, number> = {
+      '$1M-$3M': 2_000_000,
+      '$3M-$5M': 4_000_000,
+      '$5M-$10M': 7_500_000,
+      '$10M-$25M': 17_500_000,
+      '$25M+': 37_500_000,
+    }
+    const feeBps = evalData.advisoryFeeBps ? JSON.parse(evalData.advisoryFeeBps) : null
+    const lendBps = evalData.lendingSpreadBps ? JSON.parse(evalData.lendingSpreadBps) : null
+    const satisfaction = evalData.serviceModel ? JSON.parse(evalData.serviceModel) : null
+    const customization = evalData.portfolioCustomization ? JSON.parse(evalData.portfolioCustomization) : null
+    const feeValue = feeBps ? (feeBps.confidence === 'high' ? feeBps.value : feeBps.estimated_value) : 0
+    const lendValue = lendBps ? (lendBps.confidence === 'high' ? lendBps.value : lendBps.estimated_value) : null
+    const aumMid = AUM_MIDPOINTS[prospect.assetsRange] || 7_500_000
+    const satisfactionLabels = ['', 'Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied']
+    const customizationLabels = ['', 'Pure Model', 'Mostly Model', 'Some Customization', 'Mostly Custom', 'Fully Customized']
+    const satValue = satisfaction ? (satisfaction.confidence === 'high' ? satisfaction.value : satisfaction.estimated_value) : 3
+    const custValue = customization ? (customization.confidence === 'high' ? customization.value : customization.estimated_value) : 3
+    return {
+      advisoryFeeBps: feeValue,
+      estimatedAnnualCost: Math.round((feeValue / 10000) * aumMid),
+      lendingSpreadBps: lendValue,
+      satisfaction: satisfactionLabels[satValue] || `Level ${satValue}`,
+      portfolioCustomization: customizationLabels[custValue] || `Level ${custValue}`,
+    }
+  })()
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -174,6 +206,7 @@ export default async function DashboardPage() {
             isPaid={isPaid}
             rfpId={rfp.id}
             unlockPrice={rfp.paidUnlockPrice}
+            existingAdvisor={existingAdvisorData}
           />
         )}
 

@@ -59,15 +59,24 @@ interface ResponseData {
   } | null
 }
 
+interface ExistingAdvisorData {
+  advisoryFeeBps: number
+  estimatedAnnualCost: number
+  lendingSpreadBps: number | null
+  satisfaction: string
+  portfolioCustomization: string
+}
+
 interface Props {
   responses: ResponseData[]
   freeLimit: number
   isPaid: boolean
   rfpId: string
   unlockPrice: number
+  existingAdvisor?: ExistingAdvisorData | null
 }
 
-export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPaid, rfpId, unlockPrice }: Props) {
+export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPaid, rfpId, unlockPrice, existingAdvisor }: Props) {
   const [isPaid, setIsPaid] = useState(initialIsPaid)
   const [paying, setPaying] = useState(false)
   const [viewMode, setViewMode] = useState<'raw' | 'normalized'>('normalized')
@@ -197,6 +206,41 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
       {/* Comparison Cards */}
       <div className="overflow-x-auto">
         <div className="inline-flex gap-6 min-w-full pb-4">
+          {/* Existing Advisor Card (from evaluation flow) */}
+          {existingAdvisor && (
+            <div className="w-80 flex-shrink-0 rounded-lg overflow-hidden border border-amber-200 bg-amber-50/30">
+              <div className="bg-amber-100 px-6 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Your Existing Advisor</p>
+              </div>
+              <div className="p-6 border-b border-amber-100">
+                <h3 className="text-base font-semibold text-neutral-900">Current Arrangement</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">Based on your evaluation inputs</p>
+              </div>
+              <div className="divide-y divide-amber-100">
+                <div className="px-6 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">AUM Fee</p>
+                  <p className="text-lg font-semibold text-neutral-900 mt-1">{formatBps(existingAdvisor.advisoryFeeBps)}</p>
+                </div>
+                <div className="px-6 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Est. Annual Cost</p>
+                  <p className="text-lg font-semibold text-neutral-900 mt-1">{formatCurrency(existingAdvisor.estimatedAnnualCost)}</p>
+                </div>
+                <div className="px-6 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Lending Spread</p>
+                  <p className="text-sm text-neutral-900 mt-1">{existingAdvisor.lendingSpreadBps != null ? formatBps(existingAdvisor.lendingSpreadBps) : 'N/A'}</p>
+                </div>
+                <div className="px-6 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Satisfaction</p>
+                  <p className="text-sm text-neutral-900 mt-1">{existingAdvisor.satisfaction}</p>
+                </div>
+                <div className="px-6 py-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Portfolio Customization</p>
+                  <p className="text-sm text-neutral-900 mt-1">{existingAdvisor.portfolioCustomization}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {visibleResponses.map((r) => {
             const norm = normalizedMap[r.id]
             return (
