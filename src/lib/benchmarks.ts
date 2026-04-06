@@ -54,7 +54,7 @@ const FIELD_BOUNDS: Record<string, [number, number]> = {
 const FIELD_LABELS: Record<string, string> = {
   advisoryFeeBps: 'Advisory Fee',
   lendingSpreadBps: 'Lending Spread',
-  serviceModel: 'Service Model',
+  serviceModel: 'Satisfaction',
   portfolioCustomization: 'Portfolio Customization',
 }
 

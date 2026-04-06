@@ -21,8 +21,8 @@ function formatSpread(bps: number): string {
   return `SOFR + ${(bps / 100).toFixed(2)}%`
 }
 
-function formatServiceLevel(level: number): string {
-  const labels = ['', 'Fully Reactive', 'Mostly Reactive', 'Balanced', 'Mostly Proactive', 'Fully Proactive']
+function formatSatisfaction(level: number): string {
+  const labels = ['', 'Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied']
   return labels[level] || `Level ${level}`
 }
 
@@ -34,7 +34,7 @@ function formatCustomization(level: number): string {
 function getFieldFormatter(field: string): (v: number) => string {
   if (field === 'advisoryFeeBps') return formatBps
   if (field === 'lendingSpreadBps') return formatSpread
-  if (field === 'serviceModel') return formatServiceLevel
+  if (field === 'serviceModel') return formatSatisfaction
   if (field === 'portfolioCustomization') return formatCustomization
   return (v) => String(v)
 }
@@ -114,7 +114,7 @@ export function EvaluationDashboard({ evaluation, prospectName }: Props) {
         <div className="divide-y divide-neutral-100">
           <FieldRow label="Advisory Fee" field={evaluation.advisoryFeeBps} formatter={formatBps} />
           <FieldRow label="Lending Spread" field={evaluation.lendingSpreadBps} formatter={formatSpread} />
-          <FieldRow label="Service Model" field={evaluation.serviceModel} formatter={formatServiceLevel} />
+          <FieldRow label="Satisfaction" field={evaluation.serviceModel} formatter={formatSatisfaction} />
           <FieldRow label="Portfolio Customization" field={evaluation.portfolioCustomization} formatter={formatCustomization} />
         </div>
       </Card>

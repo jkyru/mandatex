@@ -37,8 +37,8 @@ function makeDefaultField(estimate: { median: number; range: [number, number] })
     value: estimate.median,
     estimated_value: estimate.median,
     range: estimate.range,
-    confidence: 'low',
-    source: 'estimated',
+    confidence: 'high',
+    source: 'user',
   }
 }
 
@@ -144,8 +144,8 @@ export default function EvaluatePage() {
     return `SOFR + ${(bps / 100).toFixed(2)}%`
   }
 
-  function formatServiceLevel(level: number): string {
-    const labels = ['', 'Fully Reactive', 'Mostly Reactive', 'Balanced', 'Mostly Proactive', 'Fully Proactive']
+  function formatSatisfaction(level: number): string {
+    const labels = ['', 'Very Dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very Satisfied']
     return labels[level] || `Level ${level}`
   }
 
@@ -309,12 +309,17 @@ export default function EvaluatePage() {
               </div>
 
               <ConfidenceSlider
-                label="Service Model"
-                description="How proactive is your advisor in managing your wealth?"
+                label="Satisfaction"
+                description="How satisfied are you with your current advisor's service?"
                 min={1}
                 max={5}
                 step={1}
-                formatValue={formatServiceLevel}
+                formatValue={formatSatisfaction}
+                markers={[
+                  { value: 1, label: 'Very Dissatisfied' },
+                  { value: 3, label: 'Neutral' },
+                  { value: 5, label: 'Very Satisfied' },
+                ]}
                 estimatedValue={estimates.serviceModel.median}
                 estimatedRange={estimates.serviceModel.range}
                 value={serviceModel}
@@ -328,6 +333,11 @@ export default function EvaluatePage() {
                 max={5}
                 step={1}
                 formatValue={formatCustomization}
+                markers={[
+                  { value: 1, label: 'Pure Model' },
+                  { value: 3, label: 'Some Custom' },
+                  { value: 5, label: 'Fully Custom' },
+                ]}
                 estimatedValue={estimates.portfolioCustomization.median}
                 estimatedRange={estimates.portfolioCustomization.range}
                 value={portfolioCustomization}
@@ -403,10 +413,10 @@ export default function EvaluatePage() {
                 )}
                 <div className="py-4 flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Service Model</p>
+                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Satisfaction</p>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-sm text-neutral-900">
-                        {serviceModel?.confidence === 'high' ? formatServiceLevel(serviceModel.value) : `${formatServiceLevel(serviceModel?.range[0] ?? 1)} - ${formatServiceLevel(serviceModel?.range[1] ?? 5)}`}
+                        {serviceModel?.confidence === 'high' ? formatSatisfaction(serviceModel.value) : `${formatSatisfaction(serviceModel?.range[0] ?? 1)} - ${formatSatisfaction(serviceModel?.range[1] ?? 5)}`}
                       </p>
                       <Badge variant={serviceModel?.confidence === 'low' ? 'warning' : 'default'}>
                         {serviceModel?.confidence === 'low' ? 'Estimated' : 'Your Input'}
