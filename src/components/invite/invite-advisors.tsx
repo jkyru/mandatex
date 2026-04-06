@@ -47,6 +47,8 @@ interface Props {
 
 type Step = 'form' | 'searching' | 'disambiguate' | 'inviting'
 
+const MAX_INVITES = 5
+
 export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
   const [advisorName, setAdvisorName] = useState('')
   const [firmName, setFirmName] = useState('')
@@ -58,7 +60,13 @@ export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
 
+  const atCapacity = invited.length >= MAX_INVITES
+
   async function handleAdd() {
+    if (atCapacity) {
+      setError(`Maximum of ${MAX_INVITES} advisors allowed`)
+      return
+    }
     if (!advisorName.trim() || !firmName.trim()) {
       setError('Advisor name and firm are required')
       return
@@ -194,7 +202,7 @@ export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
       </p>
 
       {/* Form */}
-      {(step === 'form' || step === 'searching' || step === 'inviting') && (
+      {(step === 'form' || step === 'searching' || step === 'inviting') && !atCapacity && (
           <div className="space-y-3 mb-4">
             <div className="grid grid-cols-2 gap-3">
               <Input
@@ -241,6 +249,12 @@ export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
             </div>
           </div>
         )}
+
+      {atCapacity && (
+        <div className="mb-4 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-md">
+          <p className="text-sm text-neutral-600">Maximum of {MAX_INVITES} advisors reached.</p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 

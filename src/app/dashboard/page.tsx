@@ -196,6 +196,8 @@ export default async function DashboardPage() {
                 crdNumber: r.advisor.crdNumber,
                 disclosureCount: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).disclosureCount : undefined,
                 brokerCheckFirm: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).currentFirm : undefined,
+                registrationStatus: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).registrationStatus : undefined,
+                iaStatus: r.advisor.brokerCheckData ? JSON.parse(r.advisor.brokerCheckData).iaStatus : undefined,
                 advisorId: r.advisorId,
                 invitationId: r.invitationId,
                 version: r.version,

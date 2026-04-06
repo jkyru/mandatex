@@ -32,6 +32,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'RFP not found' }, { status: 404 })
     }
 
+    // Enforce 5-invite cap
+    const existingInviteCount = await prisma.rfpInvitation.count({
+      where: { rfpId },
+    })
+    if (existingInviteCount >= 5) {
+      return NextResponse.json({ error: 'Maximum of 5 advisor invitations allowed' }, { status: 400 })
+    }
+
     // Find existing advisor by CRD number or name+firm+email combo
     let advisor = null
     if (crdNumber) {

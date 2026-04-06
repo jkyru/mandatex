@@ -53,6 +53,8 @@ interface ResponseData {
   crdNumber?: string | null
   disclosureCount?: number
   brokerCheckFirm?: string | null
+  registrationStatus?: string | null
+  iaStatus?: string | null
   advisorId?: string
   invitationId?: string
   version?: number
@@ -83,7 +85,7 @@ interface Props {
   existingAdvisor?: ExistingAdvisorData | null
 }
 
-export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPaid, rfpId, unlockPrice, existingAdvisor }: Props) {
+export function ComparisonDashboard({ responses, isPaid: initialIsPaid, rfpId, unlockPrice, existingAdvisor }: Props) {
   const [isPaid, setIsPaid] = useState(initialIsPaid)
   const [paying, setPaying] = useState(false)
   const [viewMode, setViewMode] = useState<'raw' | 'normalized'>('normalized')
@@ -92,8 +94,8 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
   const [improveTarget, setImproveTarget] = useState<ResponseData | null>(null)
   const router = useRouter()
 
-  const visibleResponses = isPaid ? responses : responses.slice(0, freeLimit)
-  const lockedCount = isPaid ? 0 : Math.max(0, responses.length - freeLimit)
+  // All responses visible — section-level locking, not card-level
+  const visibleResponses = responses
 
   // Load pre-existing normalized data
   useEffect(() => {
@@ -172,12 +174,39 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
     }).format(amount)
   }
 
+  // Compute fee range teaser
+  const feeRange = (() => {
+    if (responses.length < 2) return null
+    const fees = responses.map((r) => r.aumFeeBps)
+    const costs = responses.map((r) => r.estimatedAnnualCost)
+    const minFee = Math.min(...fees)
+    const maxFee = Math.max(...fees)
+    const minCost = Math.min(...costs)
+    const maxCost = Math.max(...costs)
+    if (minFee === maxFee) return null
+    return {
+      minFee: formatBps(minFee),
+      maxFee: formatBps(maxFee),
+      annualDifference: formatCurrency(maxCost - minCost),
+    }
+  })()
+
+  function getRegistrationType(r: ResponseData): string | null {
+    if (!r.brokerCheckVerified) return null
+    const hasBroker = r.registrationStatus && r.registrationStatus !== 'NONE'
+    const hasIA = r.iaStatus && r.iaStatus !== 'NONE'
+    if (hasBroker && hasIA) return 'Broker + Investment Adviser'
+    if (hasBroker) return 'Broker'
+    if (hasIA) return 'Investment Adviser'
+    return 'Registered'
+  }
+
   const hasNormalized = Object.keys(normalizedMap).length > 0
 
   return (
     <div>
       {/* View toggle */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <div className="flex bg-neutral-100 rounded-md p-0.5">
           <button
             onClick={() => setViewMode('normalized')}
@@ -209,6 +238,19 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
           </button>
         )}
       </div>
+
+      {/* Fee range teaser (free insight) */}
+      {feeRange && (
+        <div className="mb-6 px-5 py-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+          <p className="text-sm text-neutral-700">
+            Fees range from <span className="font-semibold">{feeRange.minFee}</span> to{' '}
+            <span className="font-semibold">{feeRange.maxFee}</span> across advisors
+            {' '}&mdash; a potential{' '}
+            <span className="font-semibold text-neutral-900">{feeRange.annualDifference}</span>{' '}
+            annual difference
+          </p>
+        </div>
+      )}
 
       {/* Comparison Cards */}
       <div className="overflow-x-auto">
@@ -250,6 +292,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
 
           {visibleResponses.map((r) => {
             const norm = normalizedMap[r.id]
+            const regType = getRegistrationType(r)
             return (
               <div key={r.id} className="w-80 flex-shrink-0 bg-white border border-neutral-200 rounded-lg overflow-hidden">
                 {/* Header */}
@@ -271,37 +314,16 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                     )}
                   </div>
                   <p className="text-sm text-neutral-500 mt-0.5">{r.submissionName || r.leadAdvisorName}</p>
-                  <p className="text-xs text-neutral-400 mt-0.5">{r.firmType} — {r.city}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">{r.firmType} &mdash; {r.city}</p>
                   {r.crdNumber && (
-                    <div className="mt-2 text-xs text-neutral-400 space-y-0.5">
-                      <p>CRD #{r.crdNumber}{r.brokerCheckFirm ? ` — ${r.brokerCheckFirm}` : ''}</p>
-                      {!r.brokerCheckVerified && (
-                        <p className="text-amber-500">Not currently registered</p>
-                      )}
-                      {r.brokerCheckVerified && (
-                        <p>
-                          Disclosures: {r.disclosureCount && r.disclosureCount > 0 ? (
-                            <span className="text-amber-500">Yes ({r.disclosureCount})</span>
-                          ) : (
-                            <span>No</span>
-                          )}
-                        </p>
-                      )}
-                      <p>
-                        <a
-                          href={`https://brokercheck.finra.org/individual/summary/${r.crdNumber}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-neutral-600"
-                        >
-                          View on BrokerCheck
-                        </a>
-                      </p>
-                    </div>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      CRD #{r.crdNumber}
+                      {r.brokerCheckFirm ? ` | ${r.brokerCheckFirm}` : ''}
+                    </p>
                   )}
                 </div>
 
-                {/* Structured metrics (always shown) */}
+                {/* FREE SECTION: Core metrics */}
                 <div className="divide-y divide-neutral-100">
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">AUM Fee</p>
@@ -330,40 +352,6 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                       )}
                     </div>
                   </div>
-
-                  {/* Public Markets */}
-                  {(r.publicMarketsOfferings && r.publicMarketsOfferings.length > 0) || r.publicMarketsOther ? (
-                    <div className="px-6 py-4">
-                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Public Markets</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {r.publicMarketsOfferings?.map((pm) => (
-                          <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
-                        ))}
-                        {r.publicMarketsOther && (
-                          <span className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{r.publicMarketsOther}</span>
-                        )}
-                      </div>
-                      {r.publicMarketsDueDiligence && (
-                        <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.publicMarketsDueDiligence}</p>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {/* Private Markets (structured) */}
-                  {(r.privateMarketsOfferings && r.privateMarketsOfferings.length > 0) ? (
-                    <div className="px-6 py-4">
-                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {r.privateMarketsOfferings.map((pm) => (
-                          <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
-                        ))}
-                      </div>
-                      {r.privateMarketsDueDiligence && (
-                        <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.privateMarketsDueDiligence}</p>
-                      )}
-                    </div>
-                  ) : null}
-
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Clients per Advisor</p>
                     <div className="flex items-baseline gap-2 mt-1">
@@ -373,168 +361,238 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                       )}
                     </div>
                   </div>
-                  <div className="px-6 py-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Tax Coordination</p>
-                    <p className="text-sm text-neutral-900 mt-1 capitalize">{r.taxCoordinationLevel}</p>
-                  </div>
 
-                  {/* Normalized view */}
-                  {viewMode === 'normalized' && norm ? (
-                    <>
-                      {/* Private Markets - Normalized */}
+                  {/* Regulatory Profile (free enrichment) */}
+                  {r.brokerCheckVerified && r.crdNumber && (
+                    <div className="px-6 py-4 bg-neutral-50/50">
+                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-2">Regulatory Profile</p>
+                      <div className="space-y-1.5">
+                        {regType && (
+                          <p className="text-xs text-neutral-700">{regType}</p>
+                        )}
+                        <p className="text-xs text-neutral-700">
+                          {r.disclosureCount && r.disclosureCount > 0
+                            ? <span className="text-amber-600">{r.disclosureCount} disclosure{r.disclosureCount !== 1 ? 's' : ''}</span>
+                            : 'No disclosures on record'
+                          }
+                        </p>
+                        <p>
+                          <a
+                            href={`https://brokercheck.finra.org/individual/summary/${r.crdNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-neutral-400 underline hover:text-neutral-600"
+                          >
+                            View on BrokerCheck
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* LOCKED SECTION: Competitive insights */}
+                <div className="relative">
+                  {!isPaid && (
+                    <div className="absolute inset-0 z-10 backdrop-blur-[4px] bg-white/50 border-t-2 border-red-200" />
+                  )}
+                  <div className={`divide-y divide-neutral-100 ${!isPaid ? 'border-t-2 border-red-200' : 'border-t border-neutral-100'}`}>
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Tax Coordination</p>
+                      <p className="text-sm text-neutral-900 mt-1 capitalize">{r.taxCoordinationLevel}</p>
+                    </div>
+
+                    {/* Public Markets */}
+                    {(r.publicMarketsOfferings && r.publicMarketsOfferings.length > 0) || r.publicMarketsOther ? (
                       <div className="px-6 py-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
-                        {norm.privateMarkets.assetClasses.length > 0 ? (
-                          <div className="mt-2 space-y-2">
-                            <div className="flex flex-wrap gap-1.5">
-                              {norm.privateMarkets.assetClasses.map((ac) => (
-                                <span key={ac} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">
-                                  {ac}
-                                </span>
-                              ))}
-                            </div>
-                            {norm.privateMarkets.minimumInvestment && (
-                              <p className="text-xs text-neutral-500">Min: {norm.privateMarkets.minimumInvestment}</p>
-                            )}
-                            {norm.privateMarkets.accessType && (
-                              <p className="text-xs text-neutral-500">Access: {norm.privateMarkets.accessType}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-neutral-500 mt-1">Not available</p>
+                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Public Markets</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {r.publicMarketsOfferings?.map((pm) => (
+                            <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
+                          ))}
+                          {r.publicMarketsOther && (
+                            <span className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{r.publicMarketsOther}</span>
+                          )}
+                        </div>
+                        {r.publicMarketsDueDiligence && (
+                          <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.publicMarketsDueDiligence}</p>
                         )}
                       </div>
+                    ) : null}
 
-                      {/* Differentiation - Normalized */}
+                    {/* Private Markets (structured) */}
+                    {(r.privateMarketsOfferings && r.privateMarketsOfferings.length > 0) ? (
                       <div className="px-6 py-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Firm Profile</p>
-                        <div className="mt-2 space-y-2">
-                          {norm.differentiation.teamSize && (
-                            <p className="text-xs text-neutral-700">Team: {norm.differentiation.teamSize}</p>
-                          )}
-                          {norm.differentiation.yearsExperience && (
-                            <p className="text-xs text-neutral-700">Experience: {norm.differentiation.yearsExperience}</p>
-                          )}
-                          {norm.differentiation.certifications.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {norm.differentiation.certifications.map((c) => (
-                                <span key={c} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded font-medium">
-                                  {c}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {norm.differentiation.specializations.length > 0 && (
-                            <div>
-                              <p className="text-xs text-neutral-500 mb-1">Specializations</p>
-                              <ul className="text-xs text-neutral-700 space-y-0.5">
-                                {norm.differentiation.specializations.map((s) => (
-                                  <li key={s}>{s}</li>
+                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {r.privateMarketsOfferings.map((pm) => (
+                            <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
+                          ))}
+                        </div>
+                        {r.privateMarketsDueDiligence && (
+                          <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.privateMarketsDueDiligence}</p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Normalized view */}
+                    {viewMode === 'normalized' && norm ? (
+                      <>
+                        {/* Private Markets - Normalized */}
+                        <div className="px-6 py-4">
+                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
+                          {norm.privateMarkets.assetClasses.length > 0 ? (
+                            <div className="mt-2 space-y-2">
+                              <div className="flex flex-wrap gap-1.5">
+                                {norm.privateMarkets.assetClasses.map((ac) => (
+                                  <span key={ac} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">
+                                    {ac}
+                                  </span>
                                 ))}
-                              </ul>
+                              </div>
+                              {norm.privateMarkets.minimumInvestment && (
+                                <p className="text-xs text-neutral-500">Min: {norm.privateMarkets.minimumInvestment}</p>
+                              )}
+                              {norm.privateMarkets.accessType && (
+                                <p className="text-xs text-neutral-500">Access: {norm.privateMarkets.accessType}</p>
+                              )}
                             </div>
-                          )}
-                          {norm.differentiation.keyCapabilities.length > 0 && (
-                            <div>
-                              <p className="text-xs text-neutral-500 mb-1">Capabilities</p>
-                              <ul className="text-xs text-neutral-700 space-y-0.5">
-                                {norm.differentiation.keyCapabilities.map((k) => (
-                                  <li key={k}>{k}</li>
-                                ))}
-                              </ul>
-                            </div>
+                          ) : (
+                            <p className="text-sm text-neutral-500 mt-1">Not available</p>
                           )}
                         </div>
-                      </div>
 
-                      {/* Concessions - Normalized */}
-                      {(norm.concessions.feeDiscounts || norm.concessions.waivedMinimums || norm.concessions.specialTerms) && (
+                        {/* Differentiation - Normalized */}
                         <div className="px-6 py-4">
-                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Concessions</p>
-                          <div className="mt-2 space-y-1.5">
-                            {norm.concessions.feeDiscounts && (
-                              <p className="text-xs text-neutral-700">{norm.concessions.feeDiscounts}</p>
+                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Firm Profile</p>
+                          <div className="mt-2 space-y-2">
+                            {norm.differentiation.teamSize && (
+                              <p className="text-xs text-neutral-700">Team: {norm.differentiation.teamSize}</p>
                             )}
-                            {norm.concessions.waivedMinimums && (
-                              <p className="text-xs text-neutral-700">{norm.concessions.waivedMinimums}</p>
+                            {norm.differentiation.yearsExperience && (
+                              <p className="text-xs text-neutral-700">Experience: {norm.differentiation.yearsExperience}</p>
                             )}
-                            {norm.concessions.specialTerms && (
-                              <p className="text-xs text-neutral-700">{norm.concessions.specialTerms}</p>
+                            {norm.differentiation.certifications.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {norm.differentiation.certifications.map((c) => (
+                                  <span key={c} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded font-medium">
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
                             )}
-                            {norm.concessions.isPermanent !== null && (
-                              <p className="text-xs text-neutral-400">
-                                {norm.concessions.isPermanent ? 'Permanent terms' : 'Time-limited terms'}
-                              </p>
+                            {norm.differentiation.specializations.length > 0 && (
+                              <div>
+                                <p className="text-xs text-neutral-500 mb-1">Specializations</p>
+                                <ul className="text-xs text-neutral-700 space-y-0.5">
+                                  {norm.differentiation.specializations.map((s) => (
+                                    <li key={s}>{s}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {norm.differentiation.keyCapabilities.length > 0 && (
+                              <div>
+                                <p className="text-xs text-neutral-500 mb-1">Capabilities</p>
+                                <ul className="text-xs text-neutral-700 space-y-0.5">
+                                  {norm.differentiation.keyCapabilities.map((k) => (
+                                    <li key={k}>{k}</li>
+                                  ))}
+                                </ul>
+                              </div>
                             )}
                           </div>
                         </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {/* Raw view */}
-                      <div className="px-6 py-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
-                        <p className="text-sm text-neutral-900 mt-1">{r.privateMarketsAccess || 'Not available'}</p>
-                      </div>
-                      <div className="px-6 py-4">
-                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Differentiation</p>
-                        <p className="text-sm text-neutral-700 mt-1 leading-relaxed">{r.differentiationText}</p>
-                      </div>
-                      {r.concessionsText && (
-                        <div className="px-6 py-4">
-                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Concessions</p>
-                          <p className="text-sm text-neutral-700 mt-1 leading-relaxed">{r.concessionsText}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
 
-                  {/* Improve Offer action */}
-                  <div className="px-6 py-4">
-                    {r.hasRevisionPending ? (
-                      <p className="text-xs text-amber-600 font-medium text-center">Revision Requested</p>
-                    ) : responses.length >= 2 ? (
-                      <button
-                        onClick={() => setImproveTarget(r)}
-                        className="w-full h-9 rounded-md border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                      >
-                        Improve Offer
-                      </button>
-                    ) : null}
+                        {/* Concessions - Normalized */}
+                        {(norm.concessions.feeDiscounts || norm.concessions.waivedMinimums || norm.concessions.specialTerms) && (
+                          <div className="px-6 py-4">
+                            <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Concessions</p>
+                            <div className="mt-2 space-y-1.5">
+                              {norm.concessions.feeDiscounts && (
+                                <p className="text-xs text-neutral-700">{norm.concessions.feeDiscounts}</p>
+                              )}
+                              {norm.concessions.waivedMinimums && (
+                                <p className="text-xs text-neutral-700">{norm.concessions.waivedMinimums}</p>
+                              )}
+                              {norm.concessions.specialTerms && (
+                                <p className="text-xs text-neutral-700">{norm.concessions.specialTerms}</p>
+                              )}
+                              {norm.concessions.isPermanent !== null && (
+                                <p className="text-xs text-neutral-400">
+                                  {norm.concessions.isPermanent ? 'Permanent terms' : 'Time-limited terms'}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Raw view */}
+                        <div className="px-6 py-4">
+                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
+                          <p className="text-sm text-neutral-900 mt-1">{r.privateMarketsAccess || 'Not available'}</p>
+                        </div>
+                        <div className="px-6 py-4">
+                          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Differentiation</p>
+                          <p className="text-sm text-neutral-700 mt-1 leading-relaxed">{r.differentiationText}</p>
+                        </div>
+                        {r.concessionsText && (
+                          <div className="px-6 py-4">
+                            <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Concessions</p>
+                            <p className="text-sm text-neutral-700 mt-1 leading-relaxed">{r.concessionsText}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Improve Offer action */}
+                    {isPaid && (
+                      <div className="px-6 py-4">
+                        {r.hasRevisionPending ? (
+                          <p className="text-xs text-amber-600 font-medium text-center">Revision Requested</p>
+                        ) : responses.length >= 2 ? (
+                          <button
+                            onClick={() => setImproveTarget(r)}
+                            className="w-full h-9 rounded-md border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                          >
+                            Improve Offer
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )
           })}
 
-          {/* Locked cards placeholder */}
-          {lockedCount > 0 && (
-            <div className="w-80 flex-shrink-0 bg-white border border-neutral-200 rounded-lg overflow-hidden relative">
-              <div className="absolute inset-0 backdrop-blur-sm bg-white/80 flex flex-col items-center justify-center p-8 z-10">
-                <div className="text-center">
-                  <p className="text-lg font-semibold text-neutral-900 mb-2">
-                    {lockedCount} more proposal{lockedCount !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-sm text-neutral-500 mb-6">
-                    Unlock full comparison for {formatCurrency(unlockPrice)}
-                  </p>
-                  <Button onClick={handleUnlock} disabled={paying}>
-                    {paying ? 'Processing...' : 'Unlock Full Comparison'}
-                  </Button>
+          {/* Paywall CTA card */}
+          {!isPaid && (
+            <div className="w-72 flex-shrink-0 rounded-lg border-2 border-red-200 bg-red-50/30 flex flex-col items-center justify-center p-8">
+              <div className="text-center">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
                 </div>
-              </div>
-              <div className="p-6 border-b border-neutral-100">
-                <div className="h-5 bg-neutral-100 rounded w-3/4 mb-2" />
-                <div className="h-4 bg-neutral-100 rounded w-1/2" />
-              </div>
-              <div className="divide-y divide-neutral-100">
-                {[1,2,3,4,5].map((i) => (
-                  <div key={i} className="px-6 py-4">
-                    <div className="h-3 bg-neutral-100 rounded w-1/3 mb-2" />
-                    <div className="h-5 bg-neutral-100 rounded w-1/2" />
-                  </div>
-                ))}
+                <p className="text-base font-semibold text-neutral-900 mb-1">
+                  Unlock Competitive Insights
+                </p>
+                <p className="text-xs text-neutral-500 mb-1">
+                  See how advisors actually differentiate
+                </p>
+                <p className="text-xs text-neutral-500 mb-1">
+                  Identify where you&apos;re overpaying
+                </p>
+                <p className="text-xs text-neutral-500 mb-4">
+                  Get leverage before negotiating
+                </p>
+                <Button onClick={handleUnlock} disabled={paying} size="sm">
+                  {paying ? 'Processing...' : `Unlock Full Comparison`}
+                </Button>
+                <p className="text-xs text-neutral-400 mt-2">{formatCurrency(unlockPrice)}</p>
               </div>
             </div>
           )}
