@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { ComparisonDashboard } from '@/components/comparison/comparison-dashboard'
 
 export default async function DashboardPage() {
@@ -15,6 +16,16 @@ export default async function DashboardPage() {
   if (user.role === 'ADMIN') redirect('/admin')
 
   const userId = user.id
+
+  // Check for active evaluation
+  const activeEvaluation = await prisma.advisorEvaluation.findFirst({
+    where: {
+      prospect: { userId },
+      status: { in: ['ACTIVE', 'COMPLETED'] },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, status: true },
+  })
 
   // Get latest prospect and RFP
   const prospect = await prisma.prospect.findFirst({
@@ -89,6 +100,21 @@ export default async function DashboardPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {activeEvaluation && (
+          <Link
+            href="/evaluate/dashboard"
+            className="block mb-6 bg-neutral-50 border border-neutral-200 rounded-lg px-5 py-4 hover:border-neutral-300 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Advisor Evaluation</p>
+                <p className="text-xs text-neutral-500 mt-0.5">You have an active evaluation of your current advisor arrangement.</p>
+              </div>
+              <span className="text-sm text-neutral-400">View &rarr;</span>
+            </div>
+          </Link>
+        )}
+
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-neutral-900">{rfp.title}</h1>
           <p className="mt-1 text-sm text-neutral-500">

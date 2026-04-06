@@ -32,6 +32,14 @@ export default function LandingPage() {
           <Link href="/signup">
             <Button size="lg">Start Your Search</Button>
           </Link>
+          <p className="mt-4">
+            <Link
+              href="/signup?intent=evaluate"
+              className="text-sm text-neutral-500 hover:text-neutral-900 underline underline-offset-4"
+            >
+              Already have an advisor? Evaluate your current arrangement
+            </Link>
+          </p>
         </div>
       </section>
 

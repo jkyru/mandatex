@@ -10,7 +10,9 @@ datasource db {
 
 // Role: PROSPECT | ADMIN
 // AuthProvider: EMAIL | GOOGLE
+// ProspectIntent: finding_advisor | evaluating_existing_advisor
 // ProspectStatus: ACTIVE | COMPLETED
+// EvaluationStatus: ACTIVE | COMPLETED | CONVERTED
 // RfpStatus: DRAFT | OPEN | CLOSED
 // InvitationStatus: SENT | OPENED | SUBMITTED | REVISION_REQUESTED
 // ResponseStatus: SUBMITTED | PUBLISHED
@@ -36,10 +38,12 @@ model Prospect {
   user        User     @relation(fields: [userId], references: [id])
   assetsRange String
   primaryGoal String
+  intent      String   @default("finding_advisor") // finding_advisor | evaluating_existing_advisor
   status      String   @default("ACTIVE") // ACTIVE | COMPLETED
   createdAt   DateTime @default(now())
   profile     ProspectProfile?
   rfps        Rfp[]
+  evaluations AdvisorEvaluation[]
 }
 
 model ProspectProfile {
@@ -70,6 +74,7 @@ model Rfp {
   responses         AdvisorResponse[]
   comparisonView    ComparisonView?
   revisionRequests  RevisionRequest[]
+  sourceEvaluation  AdvisorEvaluation?
 }
 
 model Advisor {
@@ -169,4 +174,23 @@ model ComparisonView {
   visibleResponseCount Int      @default(3)
   isPaywalled          Boolean  @default(true)
   paymentStatus        String   @default("UNPAID") // UNPAID | PAID
+}
+
+model AdvisorEvaluation {
+  id                     String   @id @default(cuid())
+  prospectId             String
+  prospect               Prospect @relation(fields: [prospectId], references: [id])
+  status                 String   @default("ACTIVE") // ACTIVE | COMPLETED | CONVERTED
+  advisoryFeeBps         String?  // JSON: ConfidenceField
+  lendingSpreadBps       String?  // JSON: ConfidenceField
+  serviceModel           String?  // JSON: ConfidenceField
+  portfolioCustomization String?  // JSON: ConfidenceField
+  benchmarkResults       String?  // JSON: BenchmarkResult[]
+  aiInsights             String?  // JSON: string[]
+  convertedRfpId         String?  @unique
+  convertedRfp           Rfp?     @relation(fields: [convertedRfpId], references: [id])
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([prospectId])
 }

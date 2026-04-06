@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,8 +10,12 @@ import { Card } from '@/components/ui/card'
 
 type Role = 'PROSPECT' | 'ADVISOR'
 
-export default function SignupPage() {
-  const [role, setRole] = useState<Role | null>(null)
+function SignupForm() {
+  const searchParams = useSearchParams()
+  const intent = searchParams.get('intent')
+  const isEvaluateIntent = intent === 'evaluate'
+
+  const [role, setRole] = useState<Role | null>(isEvaluateIntent ? 'PROSPECT' : null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -54,7 +58,7 @@ export default function SignupPage() {
         setError('Account created but could not sign in automatically')
         setLoading(false)
       } else {
-        const destination = role === 'ADVISOR' ? '/advisor/dashboard' : '/questionnaire'
+        const destination = role === 'ADVISOR' ? '/advisor/dashboard' : isEvaluateIntent ? '/evaluate' : '/questionnaire'
         router.push(destination)
         router.refresh()
       }
@@ -71,48 +75,58 @@ export default function SignupPage() {
           <Link href="/" className="text-2xl font-semibold tracking-tight text-neutral-900">
             MandateX
           </Link>
-          <p className="mt-2 text-sm text-neutral-500">Create your account</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            {isEvaluateIntent ? 'Create an account to evaluate your current advisor' : 'Create your account'}
+          </p>
         </div>
 
         <Card className="p-8">
           {/* Role Selector */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-neutral-700 mb-3">
-              I am...
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setRole('PROSPECT')}
-                className={`flex flex-col items-center text-center px-4 py-5 rounded-md border transition-colors ${
-                  role === 'PROSPECT'
-                    ? 'border-neutral-900 bg-neutral-50'
-                    : 'border-neutral-200 hover:border-neutral-300'
-                }`}
-              >
-                <svg className="w-6 h-6 mb-2 text-neutral-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
-                <span className="text-sm font-medium text-neutral-900">Looking for an advisor</span>
-                <span className="text-xs text-neutral-500 mt-1">Find and compare advisors</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('ADVISOR')}
-                className={`flex flex-col items-center text-center px-4 py-5 rounded-md border transition-colors ${
-                  role === 'ADVISOR'
-                    ? 'border-neutral-900 bg-neutral-50'
-                    : 'border-neutral-200 hover:border-neutral-300'
-                }`}
-              >
-                <svg className="w-6 h-6 mb-2 text-neutral-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-                </svg>
-                <span className="text-sm font-medium text-neutral-900">I'm a wealth advisor</span>
-                <span className="text-xs text-neutral-500 mt-1">Register your firm</span>
-              </button>
+          {isEvaluateIntent ? (
+            <div className="mb-6 bg-neutral-50 border border-neutral-200 rounded-md px-4 py-3">
+              <p className="text-sm text-neutral-700">
+                You'll be able to evaluate your current wealth management arrangement and compare it against market benchmarks.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-neutral-700 mb-3">
+                I am...
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('PROSPECT')}
+                  className={`flex flex-col items-center text-center px-4 py-5 rounded-md border transition-colors ${
+                    role === 'PROSPECT'
+                      ? 'border-neutral-900 bg-neutral-50'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  <svg className="w-6 h-6 mb-2 text-neutral-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  <span className="text-sm font-medium text-neutral-900">Looking for an advisor</span>
+                  <span className="text-xs text-neutral-500 mt-1">Find and compare advisors</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('ADVISOR')}
+                  className={`flex flex-col items-center text-center px-4 py-5 rounded-md border transition-colors ${
+                    role === 'ADVISOR'
+                      ? 'border-neutral-900 bg-neutral-50'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  <svg className="w-6 h-6 mb-2 text-neutral-700" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                  </svg>
+                  <span className="text-sm font-medium text-neutral-900">I'm a wealth advisor</span>
+                  <span className="text-xs text-neutral-500 mt-1">Register your firm</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -166,7 +180,7 @@ export default function SignupPage() {
             <Button
               variant="secondary"
               className="w-full mt-4"
-              onClick={() => signIn('google', { callbackUrl: role === 'ADVISOR' ? '/advisor/dashboard' : '/questionnaire' })}
+              onClick={() => signIn('google', { callbackUrl: role === 'ADVISOR' ? '/advisor/dashboard' : isEvaluateIntent ? '/evaluate' : '/questionnaire' })}
             >
               <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -187,5 +201,13 @@ export default function SignupPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   )
 }
