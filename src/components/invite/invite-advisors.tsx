@@ -5,75 +5,176 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
-interface Invitation {
-  email: string
+interface BrokerCheckData {
+  name: string
+  crdNumber: string
+  currentFirm: string | null
+  firmLocation: string | null
+  disclosureCount: number
+  registrationStatus: string | null
+  iaStatus: string | null
+  isActivelyRegistered: boolean
+}
+
+interface SearchMatch {
+  crdNumber: string | null
+  name: string
+  firmName: string | null
+  location: string | null
+  city: string | null
+  state: string | null
+  disclosureCount: number
+  yearsExperience: number | null
+  registrationStatus: string | null
+  iaStatus: string | null
+}
+
+interface InvitedAdvisor {
   token: string
+  advisorId: string
+  name: string
+  firm: string
+  city: string
+  email: string
+  crdNumber: string | null
+  brokerCheckData: BrokerCheckData | Record<string, unknown> | null
 }
 
 interface Props {
   rfpId: string
-  existingInvitations: Invitation[]
+  existingInvitations: InvitedAdvisor[]
 }
 
+type Step = 'form' | 'searching' | 'disambiguate' | 'inviting'
+
 export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
+  const [advisorName, setAdvisorName] = useState('')
+  const [firmName, setFirmName] = useState('')
+  const [cityState, setCityState] = useState('')
   const [email, setEmail] = useState('')
-  const [emails, setEmails] = useState<string[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>(existingInvitations)
-  const [sending, setSending] = useState(false)
+  const [step, setStep] = useState<Step>('form')
+  const [matches, setMatches] = useState<SearchMatch[]>([])
+  const [invited, setInvited] = useState<InvitedAdvisor[]>(existingInvitations)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
 
-  function addEmail() {
-    const trimmed = email.trim().toLowerCase()
-    if (!trimmed) return
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+  async function handleAdd() {
+    if (!advisorName.trim() || !firmName.trim()) {
+      setError('Advisor name and firm are required')
+      return
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError('Please enter a valid email address')
       return
     }
-    if (emails.includes(trimmed) || invitations.some((inv) => inv.email === trimmed)) {
-      setError('This email has already been added')
-      return
-    }
-    setEmails((prev) => [...prev, trimmed])
-    setEmail('')
     setError('')
-  }
-
-  function removeEmail(emailToRemove: string) {
-    setEmails((prev) => prev.filter((e) => e !== emailToRemove))
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addEmail()
-    }
-  }
-
-  async function handleSendInvitations() {
-    if (emails.length === 0) return
-    setSending(true)
-    setError('')
+    setStep('searching')
 
     try {
-      const res = await fetch('/api/prospect/invite-by-email', {
+      const res = await fetch('/api/prospect/search-advisor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rfpId, emails }),
+        body: JSON.stringify({
+          name: advisorName.trim(),
+          firm: firmName.trim(),
+          city: cityState.trim() || undefined,
+        }),
       })
       const data = await res.json()
+      const results: SearchMatch[] = data.matches || []
+
+      if (results.length === 0) {
+        // No BrokerCheck match -- invite directly without regulatory data
+        await inviteAdvisor(null)
+      } else if (results.length === 1) {
+        // Single match -- auto-select
+        await inviteAdvisor(results[0])
+      } else {
+        // Multiple matches -- show disambiguation
+        setMatches(results)
+        setStep('disambiguate')
+      }
+    } catch {
+      setError('Search failed. Please try again.')
+      setStep('form')
+    }
+  }
+
+  async function inviteAdvisor(match: SearchMatch | null) {
+    setStep('inviting')
+    setError('')
+
+    const brokerCheckData = match
+      ? {
+          name: match.name,
+          crdNumber: match.crdNumber,
+          currentFirm: match.firmName,
+          firmLocation: match.location,
+          disclosureCount: match.disclosureCount,
+          registrationStatus: match.registrationStatus,
+          iaStatus: match.iaStatus,
+          isActivelyRegistered: true,
+          verifiedAt: new Date().toISOString(),
+        }
+      : null
+
+    try {
+      const res = await fetch('/api/prospect/invite-advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rfpId,
+          name: match?.name || advisorName.trim(),
+          firm: match?.firmName || firmName.trim(),
+          city: match?.location || cityState.trim() || undefined,
+          email: email.trim() || undefined,
+          crdNumber: match?.crdNumber || undefined,
+          brokerCheckData,
+        }),
+      })
+      const data = await res.json()
+
       if (!res.ok) {
-        setError(data.error || 'Something went wrong')
-        setSending(false)
+        setError(data.error || 'Failed to add advisor')
+        setStep('form')
         return
       }
-      // Add new invitations to the list
-      setInvitations((prev) => [...prev, ...data.invitations])
-      setEmails([])
+
+      // Add to invited list
+      setInvited((prev) => {
+        // Prevent duplicates
+        if (prev.some((a) => a.advisorId === data.invitation.advisorId)) return prev
+        return [...prev, data.invitation]
+      })
+
+      // Reset form
+      setAdvisorName('')
+      setFirmName('')
+      setCityState('')
+      setEmail('')
+      setMatches([])
+      setStep('form')
     } catch {
-      setError('Something went wrong')
+      setError('Failed to add advisor. Please try again.')
+      setStep('form')
     }
-    setSending(false)
+  }
+
+  function handleSkipBrokerCheck() {
+    inviteAdvisor(null)
+  }
+
+  function handleDisambiguationSelect(match: SearchMatch) {
+    inviteAdvisor(match)
+  }
+
+  function handleCancelDisambiguation() {
+    setMatches([])
+    setStep('form')
+  }
+
+  async function removeAdvisor(token: string) {
+    setInvited((prev) => prev.filter((a) => a.token !== token))
   }
 
   async function copyLink(token: string) {
@@ -89,81 +190,167 @@ export function InviteAdvisors({ rfpId, existingInvitations }: Props) {
         Invite Advisors
       </h2>
       <p className="text-sm text-neutral-500 mb-6">
-        Enter the email addresses of advisors you'd like to invite. Each will receive a unique link to submit their proposal.
+        Add the advisors you&apos;re evaluating. We&apos;ll pull their public regulatory record automatically.
       </p>
 
-      {/* Email input */}
-      <div className="flex gap-2 mb-4">
-        <div className="flex-1">
-          <Input
-            id="advisor-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="advisor@example.com"
-          />
-        </div>
-        <Button type="button" variant="secondary" onClick={addEmail}>
-          Add
-        </Button>
-      </div>
+      {/* Form */}
+      {(step === 'form' || step === 'searching' || step === 'inviting') && (
+          <div className="space-y-3 mb-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                value={advisorName}
+                onChange={(e) => setAdvisorName(e.target.value)}
+                placeholder="e.g. Michael Smith"
+                disabled={step !== 'form'}
+              />
+              <Input
+                value={firmName}
+                onChange={(e) => setFirmName(e.target.value)}
+                placeholder="e.g. Morgan Stanley"
+                disabled={step !== 'form'}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                value={cityState}
+                onChange={(e) => setCityState(e.target.value)}
+                placeholder="e.g. Seattle, WA"
+                disabled={step !== 'form'}
+              />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="advisor@example.com"
+                disabled={step !== 'form'}
+              />
+            </div>
+            <div className="flex justify-between items-center">
+              <div className="text-xs text-neutral-400">* Name and Firm required</div>
+              <Button
+                onClick={handleAdd}
+                disabled={step !== 'form'}
+                size="sm"
+              >
+                {step === 'searching'
+                  ? 'Searching...'
+                  : step === 'inviting'
+                    ? 'Adding...'
+                    : 'Add Advisor'}
+              </Button>
+            </div>
+          </div>
+        )}
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
-      {/* Pending emails */}
-      {emails.length > 0 && (
+      {/* Disambiguation step */}
+      {step === 'disambiguate' && matches.length > 0 && (
         <div className="mb-6">
-          <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-2">
-            Ready to invite ({emails.length})
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-neutral-700">
+              Multiple matches found. Select the correct advisor:
+            </p>
+            <button
+              onClick={handleCancelDisambiguation}
+              className="text-xs text-neutral-400 hover:text-neutral-700"
+            >
+              Cancel
+            </button>
+          </div>
           <div className="space-y-2">
-            {emails.map((e) => (
-              <div key={e} className="flex items-center justify-between px-4 py-2.5 bg-neutral-50 rounded-md border border-neutral-200">
-                <span className="text-sm text-neutral-700">{e}</span>
-                <button
-                  onClick={() => removeEmail(e)}
-                  className="text-xs text-neutral-400 hover:text-neutral-700"
-                >
-                  Remove
-                </button>
-              </div>
+            {matches.map((m, i) => (
+              <button
+                key={m.crdNumber || i}
+                onClick={() => handleDisambiguationSelect(m)}
+                className="w-full text-left px-4 py-3 rounded-md border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">
+                      {m.name}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      {m.firmName || 'Unknown Firm'}
+                      {m.location ? ` | ${m.location}` : ''}
+                      {m.yearsExperience
+                        ? ` | ${m.yearsExperience} yrs experience`
+                        : ''}
+                    </p>
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    {m.crdNumber ? `CRD #${m.crdNumber}` : ''}
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
-          <Button
-            className="w-full mt-4"
-            onClick={handleSendInvitations}
-            disabled={sending}
+          <button
+            onClick={handleSkipBrokerCheck}
+            className="mt-3 text-xs text-neutral-400 hover:text-neutral-700 underline"
           >
-            {sending ? 'Sending...' : `Send ${emails.length} Invitation${emails.length !== 1 ? 's' : ''}`}
-          </Button>
+            None of these -- add without regulatory data
+          </button>
         </div>
       )}
 
-      {/* Sent invitations with copy links */}
-      {invitations.length > 0 && (
+      {/* Invited advisors */}
+      {invited.length > 0 && (
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-neutral-400 mb-3">
-            Invited ({invitations.length})
+            Added ({invited.length})
           </p>
-          <div className="space-y-2">
-            {invitations.map((inv) => (
-              <div key={inv.token} className="flex items-center justify-between px-4 py-3 bg-neutral-50 rounded-md border border-neutral-200">
-                <div>
-                  <p className="text-sm font-medium text-neutral-700">{inv.email}</p>
-                  <p className="text-xs text-neutral-400 mt-0.5 font-mono truncate max-w-xs">
-                    /advisor/{inv.token.slice(0, 8)}...
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyLink(inv.token)}
+          <div className="space-y-3">
+            {invited.map((a) => {
+              const bc = a.brokerCheckData as BrokerCheckData | null
+              return (
+                <div
+                  key={a.token}
+                  className="px-5 py-4 bg-neutral-50 rounded-md border border-neutral-200"
                 >
-                  {copied === inv.token ? 'Copied' : 'Copy Link'}
-                </Button>
-              </div>
-            ))}
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-neutral-900">
+                        {bc?.name || a.name}
+                      </p>
+                      {bc?.currentFirm && (
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          {bc.currentFirm}
+                        </p>
+                      )}
+                      {!bc?.currentFirm && a.firm && (
+                        <p className="text-xs text-neutral-500 mt-0.5">{a.firm}</p>
+                      )}
+                      <p className="text-xs text-neutral-400 mt-1">
+                        {bc?.firmLocation || a.city || ''}
+                        {a.crdNumber ? `${bc?.firmLocation || a.city ? ' | ' : ''}CRD #${a.crdNumber}` : ''}
+                        {bc
+                          ? ` | ${bc.disclosureCount} Disclosure${bc.disclosureCount !== 1 ? 's' : ''}`
+                          : ''}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-xs text-green-600">
+                          {a.email ? 'Invite sent' : 'Link ready to copy'}
+                        </span>
+                        <button
+                          onClick={() => copyLink(a.token)}
+                          className="text-xs text-neutral-400 hover:text-neutral-700 underline"
+                        >
+                          {copied === a.token ? 'Copied!' : 'Copy link'}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeAdvisor(a.token)}
+                      className="ml-3 text-neutral-300 hover:text-neutral-600 text-lg leading-none"
+                      aria-label="Remove advisor"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

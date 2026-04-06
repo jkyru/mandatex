@@ -12,7 +12,16 @@ export default async function SuccessPage({
   const { rfpId } = await searchParams
 
   let questions: { id: number; question: string }[] = []
-  let existingInvitations: { email: string; token: string }[] = []
+  let existingInvitations: {
+    token: string
+    advisorId: string
+    name: string
+    firm: string
+    city: string
+    email: string
+    crdNumber: string | null
+    brokerCheckData: Record<string, unknown> | null
+  }[] = []
 
   if (rfpId) {
     const rfp = await prisma.rfp.findUnique({
@@ -20,7 +29,19 @@ export default async function SuccessPage({
       select: {
         questions: true,
         invitations: {
-          include: { advisor: { select: { email: true } } },
+          include: {
+            advisor: {
+              select: {
+                id: true,
+                email: true,
+                leadAdvisorName: true,
+                firmName: true,
+                city: true,
+                crdNumber: true,
+                brokerCheckData: true,
+              },
+            },
+          },
         },
       },
     })
@@ -33,8 +54,16 @@ export default async function SuccessPage({
     }
     if (rfp?.invitations) {
       existingInvitations = rfp.invitations.map((inv) => ({
-        email: inv.advisor.email,
         token: inv.inviteToken,
+        advisorId: inv.advisor.id,
+        name: inv.advisor.leadAdvisorName,
+        firm: inv.advisor.firmName,
+        city: inv.advisor.city,
+        email: inv.advisor.email,
+        crdNumber: inv.advisor.crdNumber,
+        brokerCheckData: inv.advisor.brokerCheckData
+          ? JSON.parse(inv.advisor.brokerCheckData)
+          : null,
       }))
     }
   }
