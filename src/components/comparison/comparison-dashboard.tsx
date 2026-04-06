@@ -253,8 +253,9 @@ export function ComparisonDashboard({ responses, isPaid: initialIsPaid, rfpId, u
       )}
 
       {/* Comparison Cards */}
-      <div className="overflow-x-auto">
-        <div className="inline-flex gap-6 min-w-full pb-4">
+      <div className="relative">
+        <div className="overflow-x-auto">
+          <div className="inline-flex gap-6 min-w-full pb-4">
           {/* Existing Advisor Card (from evaluation flow) */}
           {existingAdvisor && (
             <div className="w-80 flex-shrink-0 rounded-lg overflow-hidden border border-amber-200 bg-amber-50/30">
@@ -394,21 +395,7 @@ export function ComparisonDashboard({ responses, isPaid: initialIsPaid, rfpId, u
                 {/* LOCKED SECTION: Competitive insights */}
                 <div className="relative">
                   {!isPaid && (
-                    <div className="absolute inset-0 z-10 backdrop-blur-[4px] bg-white/50 border-t-2 border-red-200 flex flex-col items-center justify-center p-6">
-                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mb-3">
-                        <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                      </div>
-                      <p className="text-sm font-semibold text-neutral-900 mb-1">Unlock Competitive Insights</p>
-                      <p className="text-xs text-neutral-500 mb-3 text-center leading-relaxed">
-                        See how advisors differentiate, identify where you&apos;re overpaying, and get leverage before negotiating.
-                      </p>
-                      <Button onClick={handleUnlock} disabled={paying} size="sm">
-                        {paying ? 'Processing...' : 'Unlock Full Comparison'}
-                      </Button>
-                      <p className="text-xs text-neutral-400 mt-1.5">{formatCurrency(unlockPrice)}</p>
-                    </div>
+                    <div className="absolute inset-0 z-10 backdrop-blur-[4px] bg-white/50 border-t-2 border-red-200" />
                   )}
                   <div className={`divide-y divide-neutral-100 ${!isPaid ? 'border-t-2 border-red-200' : 'border-t border-neutral-100'}`}>
                     <div className="px-6 py-4">
@@ -582,7 +569,29 @@ export function ComparisonDashboard({ responses, isPaid: initialIsPaid, rfpId, u
             )
           })}
 
+          </div>
         </div>
+
+        {/* Single floating paywall CTA — centered over locked sections */}
+        {!isPaid && (
+          <div className="absolute inset-x-0 bottom-0 h-[280px] z-20 flex items-center justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-red-200 px-8 py-6 text-center max-w-xs">
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-neutral-900 mb-1">Unlock Competitive Insights</p>
+              <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
+                See how advisors differentiate, identify where you&apos;re overpaying, and get leverage before negotiating.
+              </p>
+              <Button onClick={handleUnlock} disabled={paying} size="sm">
+                {paying ? 'Processing...' : 'Unlock Full Comparison'}
+              </Button>
+              <p className="text-xs text-neutral-400 mt-1.5">{formatCurrency(unlockPrice)}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Improve Offer Modal */}

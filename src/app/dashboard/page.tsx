@@ -46,6 +46,9 @@ export default async function DashboardPage() {
             },
             orderBy: { createdAt: 'asc' },
           },
+          invitations: {
+            select: { id: true },
+          },
           revisionRequests: {
             where: { status: { in: ['PENDING', 'VIEWED'] } },
             select: { advisorId: true, status: true },
@@ -83,6 +86,8 @@ export default async function DashboardPage() {
   const isPaid = comparisonView?.paymentStatus === 'PAID'
   const freeLimit = rfp.freeResponseLimit
   const totalResponses = rfp.responses.length
+  const totalInvitations = rfp.invitations.length
+  const atInviteCapacity = totalInvitations >= 5
 
   // Build set of advisorIds with pending revision requests
   const pendingRevisionAdvisorIds = new Set(
@@ -219,14 +224,16 @@ export default async function DashboardPage() {
           />
         )}
 
-        <div className="mt-8 text-center">
-          <a
-            href={`/success?rfpId=${rfp.id}`}
-            className="text-sm text-neutral-500 underline hover:text-neutral-700"
-          >
-            Invite Additional Advisors
-          </a>
-        </div>
+        {!atInviteCapacity && (
+          <div className="mt-8 text-center">
+            <a
+              href={`/success?rfpId=${rfp.id}`}
+              className="text-sm text-neutral-500 underline hover:text-neutral-700"
+            >
+              Invite Additional Advisors
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )
