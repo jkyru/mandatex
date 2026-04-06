@@ -119,10 +119,17 @@ model AdvisorResponse {
   advisor              Advisor  @relation(fields: [advisorId], references: [id])
   invitationId         String
   invitation           RfpInvitation @relation(fields: [invitationId], references: [id])
+  submissionName       String?  // Display name for this submission
+  submissionFirm       String?  // Display firm for this submission
   aumFeeBps            Int
   estimatedAnnualCost  Float
   lendingSpreadBps     Int?
-  privateMarketsAccess String?
+  publicMarketsOfferings    String?  // JSON array: selected public market types
+  publicMarketsOther        String?  // Free text for "Other" public market type
+  publicMarketsDueDiligence String?  // Due diligence / portfolio construction process
+  privateMarketsOfferings    String?  // JSON array: selected private market types
+  privateMarketsDueDiligence String?  // Due diligence, portfolio use, fee approach
+  privateMarketsAccess String?  // Legacy freeform field
   clientsPerAdvisor    Int
   taxCoordinationLevel String
   differentiationText  String

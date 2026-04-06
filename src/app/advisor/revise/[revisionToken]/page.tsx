@@ -72,9 +72,16 @@ export default async function RevisionPage({ params }: { params: Promise<{ revis
   }
 
   const previousResponse = {
+    submissionName: latestResponse.submissionName,
+    submissionFirm: latestResponse.submissionFirm,
     aumFeeBps: latestResponse.aumFeeBps,
     estimatedAnnualCost: latestResponse.estimatedAnnualCost,
     lendingSpreadBps: latestResponse.lendingSpreadBps,
+    publicMarketsOfferings: latestResponse.publicMarketsOfferings,
+    publicMarketsOther: latestResponse.publicMarketsOther,
+    publicMarketsDueDiligence: latestResponse.publicMarketsDueDiligence,
+    privateMarketsOfferings: latestResponse.privateMarketsOfferings,
+    privateMarketsDueDiligence: latestResponse.privateMarketsDueDiligence,
     privateMarketsAccess: latestResponse.privateMarketsAccess,
     clientsPerAdvisor: latestResponse.clientsPerAdvisor,
     taxCoordinationLevel: latestResponse.taxCoordinationLevel,

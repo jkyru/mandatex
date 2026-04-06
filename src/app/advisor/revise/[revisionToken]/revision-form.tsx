@@ -8,9 +8,16 @@ import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 
 interface PreviousResponse {
+  submissionName: string | null
+  submissionFirm: string | null
   aumFeeBps: number
   estimatedAnnualCost: number
   lendingSpreadBps: number | null
+  publicMarketsOfferings: string | null
+  publicMarketsOther: string | null
+  publicMarketsDueDiligence: string | null
+  privateMarketsOfferings: string | null
+  privateMarketsDueDiligence: string | null
   privateMarketsAccess: string | null
   clientsPerAdvisor: number
   taxCoordinationLevel: string
@@ -30,15 +37,48 @@ export function RevisionSubmissionForm({ revisionToken, advisorName, previousRes
   const [submitted, setSubmitted] = useState(false)
 
   const [form, setForm] = useState({
+    submissionName: previousResponse.submissionName || '',
+    submissionFirm: previousResponse.submissionFirm || '',
     aumFeeBps: String(previousResponse.aumFeeBps),
     estimatedAnnualCost: String(previousResponse.estimatedAnnualCost),
     lendingSpreadBps: previousResponse.lendingSpreadBps != null ? String(previousResponse.lendingSpreadBps) : '',
-    privateMarketsAccess: previousResponse.privateMarketsAccess || '',
+    publicMarketsOther: previousResponse.publicMarketsOther || '',
+    publicMarketsDueDiligence: previousResponse.publicMarketsDueDiligence || '',
+    privateMarketsDueDiligence: previousResponse.privateMarketsDueDiligence || '',
     clientsPerAdvisor: String(previousResponse.clientsPerAdvisor),
     taxCoordinationLevel: previousResponse.taxCoordinationLevel,
     differentiationText: previousResponse.differentiationText,
     concessionsText: previousResponse.concessionsText || '',
   })
+
+  const [publicMarketsSelected, setPublicMarketsSelected] = useState<string[]>(
+    previousResponse.publicMarketsOfferings ? JSON.parse(previousResponse.publicMarketsOfferings) : []
+  )
+  const [privateMarketsSelected, setPrivateMarketsSelected] = useState<string[]>(
+    previousResponse.privateMarketsOfferings ? JSON.parse(previousResponse.privateMarketsOfferings) : []
+  )
+
+  const PUBLIC_MARKETS_OPTIONS = [
+    'Separately Managed Accounts (SMAs)',
+    'Model Portfolios',
+    'Direct Indexing',
+    'Proprietary Products',
+    'Locally Managed Equity Portfolio',
+    'Bond Ladders',
+  ]
+
+  const PRIVATE_MARKETS_OPTIONS = [
+    'Drawdown Private Equity/Credit',
+    'Evergreen Private Equity/Credit',
+    'Real Estate',
+    'Real Assets',
+    'Event Driven Hedge Funds',
+    'Long/Short Hedge Funds',
+  ]
+
+  function toggleCheckbox(list: string[], setList: (v: string[]) => void, value: string) {
+    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
+  }
 
   function update(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -55,10 +95,16 @@ export function RevisionSubmissionForm({ revisionToken, advisorName, previousRes
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           revisionToken,
+          submissionName: form.submissionName.trim() || null,
+          submissionFirm: form.submissionFirm.trim() || null,
           aumFeeBps: parseInt(form.aumFeeBps),
           estimatedAnnualCost: parseFloat(form.estimatedAnnualCost),
           lendingSpreadBps: form.lendingSpreadBps ? parseInt(form.lendingSpreadBps) : null,
-          privateMarketsAccess: form.privateMarketsAccess || null,
+          publicMarketsOfferings: publicMarketsSelected.length > 0 ? JSON.stringify(publicMarketsSelected) : null,
+          publicMarketsOther: form.publicMarketsOther.trim() || null,
+          publicMarketsDueDiligence: form.publicMarketsDueDiligence.trim() || null,
+          privateMarketsOfferings: privateMarketsSelected.length > 0 ? JSON.stringify(privateMarketsSelected) : null,
+          privateMarketsDueDiligence: form.privateMarketsDueDiligence.trim() || null,
           clientsPerAdvisor: parseInt(form.clientsPerAdvisor),
           taxCoordinationLevel: form.taxCoordinationLevel,
           differentiationText: form.differentiationText,
@@ -100,10 +146,27 @@ export function RevisionSubmissionForm({ revisionToken, advisorName, previousRes
   return (
     <Card className="p-8">
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Firm info */}
-        <div>
-          <p className="text-sm text-neutral-500">Revising as</p>
-          <p className="text-lg font-medium text-neutral-900">{advisorName}</p>
+        {/* Name & Firm */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Your Information</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              id="submissionName"
+              label="Lead Advisor Name"
+              type="text"
+              value={form.submissionName}
+              onChange={(e) => update('submissionName', e.target.value)}
+              placeholder={advisorName}
+            />
+            <Input
+              id="submissionFirm"
+              label="Firm Name"
+              type="text"
+              value={form.submissionFirm}
+              onChange={(e) => update('submissionFirm', e.target.value)}
+              placeholder="Your firm name"
+            />
+          </div>
         </div>
 
         {/* Fees */}
@@ -155,21 +218,73 @@ export function RevisionSubmissionForm({ revisionToken, advisorName, previousRes
           </div>
         </div>
 
+        {/* Public Markets */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Public Markets</h3>
+          <div className="space-y-2">
+            {PUBLIC_MARKETS_OPTIONS.map((option) => (
+              <label key={option} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={publicMarketsSelected.includes(option)}
+                  onChange={() => toggleCheckbox(publicMarketsSelected, setPublicMarketsSelected, option)}
+                  className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
+                />
+                <span className="text-sm text-neutral-700">{option}</span>
+              </label>
+            ))}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!form.publicMarketsOther}
+                onChange={(e) => {
+                  if (!e.target.checked) update('publicMarketsOther', '')
+                }}
+                readOnly={!!form.publicMarketsOther}
+                className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
+              />
+              <span className="text-sm text-neutral-700">Other</span>
+            </label>
+            <input
+              type="text"
+              value={form.publicMarketsOther}
+              onChange={(e) => update('publicMarketsOther', e.target.value)}
+              placeholder="Specify other public market offering..."
+              className="ml-7 flex h-10 w-[calc(100%-1.75rem)] rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+            />
+          </div>
+          <Textarea
+            id="publicMarketsDueDiligence"
+            label="Due diligence and portfolio construction process"
+            value={form.publicMarketsDueDiligence}
+            onChange={(e) => update('publicMarketsDueDiligence', e.target.value)}
+            placeholder="Describe your due diligence process, portfolio construction methodology..."
+          />
+        </div>
+
         {/* Private Markets */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Private Markets</h3>
-          <div>
-            <Textarea
-              id="privateMarketsAccess"
-              label="Private Markets Access (describe available offerings)"
-              value={form.privateMarketsAccess}
-              onChange={(e) => update('privateMarketsAccess', e.target.value)}
-              placeholder="Describe any private equity, venture capital, private credit, or other alternative investment access..."
-            />
-            <p className="text-xs text-neutral-400 mt-1">
-              (Previous: {previousResponse.privateMarketsAccess || 'N/A'})
-            </p>
+          <div className="space-y-2">
+            {PRIVATE_MARKETS_OPTIONS.map((option) => (
+              <label key={option} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privateMarketsSelected.includes(option)}
+                  onChange={() => toggleCheckbox(privateMarketsSelected, setPrivateMarketsSelected, option)}
+                  className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
+                />
+                <span className="text-sm text-neutral-700">{option}</span>
+              </label>
+            ))}
           </div>
+          <Textarea
+            id="privateMarketsDueDiligence"
+            label="Due diligence process, how you use in client portfolios, and fee approach"
+            value={form.privateMarketsDueDiligence}
+            onChange={(e) => update('privateMarketsDueDiligence', e.target.value)}
+            placeholder="Describe your due diligence process for private market investments..."
+          />
         </div>
 
         {/* Service Model */}

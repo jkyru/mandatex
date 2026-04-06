@@ -31,11 +31,18 @@ interface ResponseData {
   id: string
   firmName: string
   leadAdvisorName: string
+  submissionName?: string | null
+  submissionFirm?: string | null
   firmType: string
   city: string
   aumFeeBps: number
   estimatedAnnualCost: number
   lendingSpreadBps: number | null
+  publicMarketsOfferings?: string[] | null
+  publicMarketsOther?: string | null
+  publicMarketsDueDiligence?: string | null
+  privateMarketsOfferings?: string[] | null
+  privateMarketsDueDiligence?: string | null
   privateMarketsAccess: string | null
   clientsPerAdvisor: number
   taxCoordinationLevel: string
@@ -248,7 +255,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                 {/* Header */}
                 <div className="p-6 border-b border-neutral-100">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-semibold text-neutral-900">{r.firmName}</h3>
+                    <h3 className="text-base font-semibold text-neutral-900">{r.submissionFirm || r.firmName}</h3>
                     {r.brokerCheckVerified && (
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-medium text-green-700">
                         <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor">
@@ -263,7 +270,7 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-neutral-500 mt-0.5">{r.leadAdvisorName}</p>
+                  <p className="text-sm text-neutral-500 mt-0.5">{r.submissionName || r.leadAdvisorName}</p>
                   <p className="text-xs text-neutral-400 mt-0.5">{r.firmType} — {r.city}</p>
                   {r.crdNumber && (
                     <div className="mt-2 text-xs text-neutral-400 space-y-0.5">
@@ -323,6 +330,40 @@ export function ComparisonDashboard({ responses, freeLimit, isPaid: initialIsPai
                       )}
                     </div>
                   </div>
+
+                  {/* Public Markets */}
+                  {(r.publicMarketsOfferings && r.publicMarketsOfferings.length > 0) || r.publicMarketsOther ? (
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Public Markets</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {r.publicMarketsOfferings?.map((pm) => (
+                          <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
+                        ))}
+                        {r.publicMarketsOther && (
+                          <span className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{r.publicMarketsOther}</span>
+                        )}
+                      </div>
+                      {r.publicMarketsDueDiligence && (
+                        <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.publicMarketsDueDiligence}</p>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {/* Private Markets (structured) */}
+                  {(r.privateMarketsOfferings && r.privateMarketsOfferings.length > 0) ? (
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Private Markets</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {r.privateMarketsOfferings.map((pm) => (
+                          <span key={pm} className="px-2 py-0.5 bg-neutral-100 text-xs text-neutral-700 rounded">{pm}</span>
+                        ))}
+                      </div>
+                      {r.privateMarketsDueDiligence && (
+                        <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{r.privateMarketsDueDiligence}</p>
+                      )}
+                    </div>
+                  ) : null}
+
                   <div className="px-6 py-4">
                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-400">Clients per Advisor</p>
                     <div className="flex items-baseline gap-2 mt-1">
