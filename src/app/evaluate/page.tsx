@@ -324,6 +324,7 @@ export default function EvaluatePage() {
                 estimatedRange={estimates.serviceModel.range}
                 value={serviceModel}
                 onChange={setServiceModel}
+                hideEstimate
               />
 
               <ConfidenceSlider

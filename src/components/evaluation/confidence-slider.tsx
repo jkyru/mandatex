@@ -16,6 +16,7 @@ interface ConfidenceSliderProps {
   estimatedRange: [number, number]
   value: ConfidenceField
   onChange: (field: ConfidenceField) => void
+  hideEstimate?: boolean
 }
 
 export function ConfidenceSlider({
@@ -31,6 +32,7 @@ export function ConfidenceSlider({
   estimatedRange,
   value,
   onChange,
+  hideEstimate,
 }: ConfidenceSliderProps) {
   const [lastManualValue, setLastManualValue] = useState<number>(estimatedValue)
   const isEstimated = value.confidence === 'low'
@@ -98,11 +100,12 @@ export function ConfidenceSlider({
           <div className="relative h-4 -mt-1">
             {markers.map((marker) => {
               const pct = ((marker.value - min) / (max - min)) * 100
+              const align = pct === 0 ? 'left-0' : pct === 100 ? 'right-0' : '-translate-x-1/2'
               return (
                 <span
                   key={marker.value}
-                  className="absolute text-[10px] text-neutral-400 -translate-x-1/2"
-                  style={{ left: `${pct}%` }}
+                  className={`absolute text-[10px] text-neutral-400 ${align}`}
+                  style={pct > 0 && pct < 100 ? { left: `${pct}%` } : undefined}
                 >
                   {marker.label}
                 </span>
@@ -132,15 +135,17 @@ export function ConfidenceSlider({
         )}
       </div>
 
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={isEstimated}
-          onChange={(e) => handleCheckboxChange(e.target.checked)}
-          className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
-        />
-        <span className="text-xs text-neutral-500">I'm not sure -- estimate for me</span>
-      </label>
+      {!hideEstimate && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isEstimated}
+            onChange={(e) => handleCheckboxChange(e.target.checked)}
+            className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500"
+          />
+          <span className="text-xs text-neutral-500">I'm not sure -- estimate for me</span>
+        </label>
+      )}
     </div>
   )
 }
