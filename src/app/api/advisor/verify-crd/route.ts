@@ -106,8 +106,37 @@ export async function POST(req: Request) {
     // Only consider "verified" if the advisor has an active registration
     const isActivelyRegistered = currentEmployments.length > 0
 
-    const disclosures: Array<{ type: string; date: string | null; detail: string | null; resolution: string | null }> = []
-    const disclosureCount = hasDisclosures ? 1 : 0
+    // Fetch real disclosure count from detail endpoint
+    let disclosures: Array<{ type: string; date: string | null; detail: string | null; resolution: string | null }> = []
+    let disclosureCount = 0
+    if (hasDisclosures) {
+      try {
+        const detailRes = await fetch(
+          `https://api.brokercheck.finra.org/search/individual/${crd}`,
+          { headers: { Accept: 'application/json' } }
+        )
+        if (detailRes.ok) {
+          const detailData = await detailRes.json()
+          const contentStr = detailData?.hits?.hits?.[0]?._source?.content
+          const content = typeof contentStr === 'string' ? JSON.parse(contentStr) : contentStr
+          if (content?.disclosures && Array.isArray(content.disclosures)) {
+            disclosureCount = content.disclosures.length
+            disclosures = content.disclosures.map((d: Record<string, string | null>) => ({
+              type: d.disclosureType || d.type || 'Unknown',
+              date: d.disclosureDate || d.eventDate || d.date || null,
+              detail: d.disclosureDetail || d.detail || null,
+              resolution: d.disclosureResolution || d.resolution || null,
+            }))
+          } else {
+            disclosureCount = 1 // fallback
+          }
+        } else {
+          disclosureCount = 1 // fallback
+        }
+      } catch {
+        disclosureCount = 1 // fallback
+      }
+    }
 
     const brokerCheckData = {
       name,

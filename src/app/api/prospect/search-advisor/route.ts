@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     // Optionally filter by city if provided
     const cityLower = city?.trim().toLowerCase()
 
-    const matches = hits.map((hit) => {
+    const matches = await Promise.all(hits.map(async (hit) => {
       const s = hit._source
       const emp = s.ind_current_employments?.[0]
       const fullName = [s.ind_firstname, s.ind_middlename, s.ind_lastname]
@@ -75,6 +75,31 @@ export async function POST(req: Request) {
         }
       }
 
+      // Fetch real disclosure count from detail endpoint if flagged
+      let disclosureCount = 0
+      if (s.ind_bc_disclosure_fl === 'Y' && s.ind_source_id) {
+        try {
+          const detailRes = await fetch(
+            `https://api.brokercheck.finra.org/search/individual/${s.ind_source_id}`,
+            { headers: { Accept: 'application/json' } }
+          )
+          if (detailRes.ok) {
+            const detailData = await detailRes.json()
+            const contentStr = detailData?.hits?.hits?.[0]?._source?.content
+            const content = typeof contentStr === 'string' ? JSON.parse(contentStr) : contentStr
+            if (content?.disclosures && Array.isArray(content.disclosures)) {
+              disclosureCount = content.disclosures.length
+            } else {
+              disclosureCount = 1 // fallback
+            }
+          } else {
+            disclosureCount = 1 // fallback
+          }
+        } catch {
+          disclosureCount = 1 // fallback
+        }
+      }
+
       return {
         crdNumber: s.ind_source_id || null,
         name: fullName,
@@ -82,12 +107,12 @@ export async function POST(req: Request) {
         location,
         city: emp?.branch_city || null,
         state: emp?.branch_state || null,
-        disclosureCount: s.ind_bc_disclosure_fl === 'Y' ? 1 : 0,
+        disclosureCount,
         yearsExperience,
         registrationStatus: s.ind_bc_scope || null,
         iaStatus: s.ind_ia_scope || null,
       }
-    })
+    }))
 
     // Filter by city if provided
     const filtered = cityLower
